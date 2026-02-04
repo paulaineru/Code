@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <PackageReference Remove="Microsoft.CodeAnalysis.Analyzers" />
+  </ItemGroup>
+</Project> 

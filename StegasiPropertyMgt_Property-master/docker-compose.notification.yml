@@ -1,0 +1,37 @@
+services:
+  notificationservice:
+    build:
+      context: .
+      dockerfile: NotificationService/Dockerfile
+    container_name: notificationservice
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_PATHBASE=/notification
+      - ConnectionStrings__NotificationDb=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - ConnectionStrings__DefaultConnection=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      - notification-network
+      - stegasipropertymgt_proxy-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  notification-network:
+    driver: bridge
+  stegasipropertymgt_proxy-network:
+    driver: bridge 

@@ -1,0 +1,32 @@
+services:
+  documentmanagementservice:
+    build:
+      context: .
+      dockerfile: DocumentManagementService/Dockerfile
+    container_name: documentmanagementservice
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_PATHBASE=/document
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      - document-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  document-network:
+    driver: bridge 

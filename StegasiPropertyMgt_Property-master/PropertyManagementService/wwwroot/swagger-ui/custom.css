@@ -1,0 +1,156 @@
+/* Custom Swagger UI Styles */
+.swagger-ui {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.swagger-ui .topbar {
+    background-color: #2c3e50;
+}
+
+.swagger-ui .info .title {
+    color: #2c3e50;
+}
+
+.swagger-ui .opblock.opblock-get {
+    border-color: #3498db;
+    background: rgba(52, 152, 219, 0.1);
+}
+
+.swagger-ui .opblock.opblock-post {
+    border-color: #2ecc71;
+    background: rgba(46, 204, 113, 0.1);
+}
+
+.swagger-ui .opblock.opblock-put {
+    border-color: #f1c40f;
+    background: rgba(241, 196, 15, 0.1);
+}
+
+.swagger-ui .opblock.opblock-delete {
+    border-color: #e74c3c;
+    background: rgba(231, 76, 60, 0.1);
+}
+
+.swagger-ui .btn.execute {
+    background-color: #2c3e50;
+}
+
+.swagger-ui .btn.execute:hover {
+    background-color: #34495e;
+}
+
+.swagger-ui .scheme-container {
+    background-color: #f8f9fa;
+}
+
+.swagger-ui .response-col_status {
+    color: #2c3e50;
+}
+
+.swagger-ui .response-col_description {
+    color: #2c3e50;
+}
+
+/* Improve readability */
+.swagger-ui .opblock-description-wrapper p,
+.swagger-ui .opblock-external-docs-wrapper p,
+.swagger-ui .opblock-title_normal p {
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* Add some spacing */
+.swagger-ui .opblock {
+    margin-bottom: 15px;
+}
+
+/* Style the parameters section */
+.swagger-ui .parameters-container {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+/* Style the responses section */
+.swagger-ui .responses-table {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+/* Style the models section */
+.swagger-ui .model-container {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+/* Custom scrollbar */
+.swagger-ui ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.swagger-ui ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.swagger-ui ::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.swagger-ui ::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Security section styling */
+.swagger-ui .auth-wrapper {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+/* Version badge */
+.swagger-ui .version-badge {
+    background-color: #2c3e50;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+    margin-left: 10px;
+}
+
+/* Dark mode styles */
+.dark-mode {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+
+.dark-mode .swagger-ui {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+
+.dark-mode .swagger-ui .opblock {
+    background-color: #2d2d2d;
+    border-color: #404040;
+}
+
+.dark-mode .swagger-ui .opblock-description-wrapper,
+.dark-mode .swagger-ui .opblock-external-docs-wrapper,
+.dark-mode .swagger-ui .opblock-title_normal {
+    color: #ffffff;
+}
+
+.dark-mode .swagger-ui .parameters-container,
+.dark-mode .swagger-ui .responses-table,
+.dark-mode .swagger-ui .model-container {
+    background-color: #2d2d2d;
+}
+
+.dark-mode .swagger-ui .auth-wrapper {
+    background-color: #2d2d2d;
+    border-color: #404040;
+} 

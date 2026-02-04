@@ -1,0 +1,40 @@
+services:
+  nginx:
+    build:
+      context: ./Nginx
+      dockerfile: Dockerfile
+    container_name: nginx
+    ports:
+      - "9101:80"
+      - "8443:443"
+    networks:
+      - proxy-network
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  proxy-network:
+    driver: bridge
+  stegasipropertymgt_auth-network:
+    external: true
+  stegasipropertymgt_property-network:
+    external: true
+  stegasipropertymgt_approval-network:
+    external: true
+  stegasipropertymgt_tenant-network:
+    external: true
+  stegasipropertymgt_billing-network:
+    external: true
+  stegasipropertymgt_notification-network:
+    external: true
+  stegasipropertymgt_document-network:
+    external: true 

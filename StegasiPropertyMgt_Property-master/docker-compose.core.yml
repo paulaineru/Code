@@ -1,0 +1,24 @@
+services:
+  propertymanagementservice:
+    extends:
+      file: docker-compose.property.yml
+      service: propertymanagementservice
+    networks:
+      - property-network
+      - stegasipropertymgt_proxy-network
+
+  tenantmanagementservice:
+    extends:
+      file: docker-compose.tenant.yml
+      service: tenantmanagementservice
+    networks:
+      - tenant-network
+      - stegasipropertymgt_proxy-network
+
+networks:
+  stegasipropertymgt_proxy-network:
+    driver: bridge
+  property-network:
+    driver: bridge
+  tenant-network:
+    driver: bridge 

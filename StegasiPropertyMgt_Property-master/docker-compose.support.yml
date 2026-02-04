@@ -1,0 +1,48 @@
+services:
+  notificationservice:
+    extends:
+      file: docker-compose.notification.yml
+      service: notificationservice
+    networks:
+      - notification-network
+      - stegasipropertymgt_proxy-network
+
+  reportingservice:
+    build:
+      context: .
+      dockerfile: ReportingService/Dockerfile
+    container_name: reportingservice
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+    networks:
+      - stegasipropertymgt_proxy-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  approvalworkflowservice:
+    extends:
+      file: docker-compose.approval.yml
+      service: approvalworkflowservice
+    networks:
+      - approval-network
+      - stegasipropertymgt_proxy-network
+
+networks:
+  stegasipropertymgt_proxy-network:
+    driver: bridge
+  notification-network:
+    driver: bridge
+  approval-network:
+    driver: bridge 

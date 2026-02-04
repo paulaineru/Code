@@ -1,0 +1,328 @@
+# Main Docker Compose file for Stegasi Property Management System
+# This file orchestrates all microservices with proper networking and dependencies
+
+version: '3.8'
+
+services:
+  # Authentication Service
+  authenticationservice:
+    build:
+      context: .
+      dockerfile: AuthenticationService/Dockerfile
+    container_name: authenticationservice
+    expose:
+      - "8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_PATHBASE=/auth
+      - ConnectionStrings__AuthDb=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.101
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Property Management Service
+  propertymanagementservice:
+    build:
+      context: .
+      dockerfile: PropertyManagementService/Dockerfile
+    container_name: propertymanagementservice
+    expose:
+      - "8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_PATHBASE=/property
+      - ConnectionStrings__PropertyDb=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+      - Smtp__Host=smtp.example.com
+      - Smtp__Port=587
+      - Smtp__Username=your-email@example.com
+      - Smtp__Password=your-password
+      - AWS__Region=us-east-1
+      - AWS__BucketName=stegasi-property-images
+      - AWS__AccessKey=dummy-access-key
+      - AWS__SecretKey=dummy-secret-key
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.104
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Approval Workflow Service
+  approvalworkflowservice:
+    build:
+      context: .
+      dockerfile: ApprovalWorkflowService/Dockerfile
+    container_name: approvalworkflowservice
+    expose:
+      - "8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_PATHBASE=/approval
+      - ConnectionStrings__ApprovalWorkflowDb=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - ConnectionStrings__DefaultConnection=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.107
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Tenant Management Service
+  tenantmanagementservice:
+    build:
+      context: .
+      dockerfile: TenantManagementService/Dockerfile
+    container_name: tenantmanagementservice
+    expose:
+      - "8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_PATHBASE=/tenant
+      - ConnectionStrings__TenantDb=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.106
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Billing Service
+  billingservice:
+    build:
+      context: .
+      dockerfile: BillingService/Dockerfile
+    container_name: billingservice
+    expose:
+      - "8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_PATHBASE=/billing
+      - ConnectionStrings__BillingDb=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.102
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Notification Service
+  notificationservice:
+    build:
+      context: .
+      dockerfile: NotificationService/Dockerfile
+    container_name: notificationservice
+    expose:
+      - "8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_PATHBASE=/notification
+      - ConnectionStrings__NotificationDb=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.103
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Document Management Service
+  documentmanagementservice:
+    build:
+      context: .
+      dockerfile: DocumentManagementService/Dockerfile
+    container_name: documentmanagementservice
+    expose:
+      - "8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_PATHBASE=/document
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.108
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Reporting Service
+  reportingservice:
+    build:
+      context: .
+      dockerfile: ReportingService/Dockerfile
+    container_name: reportingservice
+    expose:
+      - "8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.105
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  # Nginx Reverse Proxy
+  nginx:
+    build:
+      context: ./Nginx
+      dockerfile: Dockerfile
+    container_name: nginx
+    # ports:
+    #   - "9101:80"
+    #   - "8443:443"
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.100
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - authenticationservice
+      - propertymanagementservice
+      - approvalworkflowservice
+      - tenantmanagementservice
+      - billingservice
+      - notificationservice
+      - documentmanagementservice
+      - reportingservice
+    ports:
+      - "9101:9101" # Auth
+      - "9102:9102" # Billing
+      - "9103:9103" # Notification
+      - "9104:9104" # propertymanagementservice
+      - "9105:9105" # Reportingservice
+      - "9106:9106" # TenantManagementService
+      - "9107:9107" # ApprovalWorkflowService
+      - "9108:9108" # DocumentManagementService
+
+
+
+networks:
+  stegasi-network:
+    external: true
+# networks:
+#   stegasi-network:
+#     driver: bridge
+#     ipam:
+#       config:
+#         - subnet: 10.255.100.96/28
+#           gateway: 10.255.100.97
+
+

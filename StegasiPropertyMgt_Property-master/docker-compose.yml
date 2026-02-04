@@ -1,0 +1,154 @@
+services:
+  # =========================
+  # API Services
+  # =========================
+  
+  authenticationservice:
+    build:
+      context: .
+      dockerfile: AuthenticationService/Dockerfile
+    container_name: authenticationservice
+    restart: always
+    environment:
+      - TZ=Africa/Nairobi
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - JWT__Secret=your_jwt_secret_key_here
+      - JWT__Issuer=your_issuer
+      - JWT__Audience=your_audience
+    expose:
+      - "8080"
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.101
+
+  billingservice:
+    build:
+      context: .
+      dockerfile: BillingService/Dockerfile
+    container_name: billingservice
+    restart: always
+    environment:
+      - TZ=Africa/Nairobi
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+    expose:
+      - "8080"
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.102
+  
+  notificationservice:
+    build:
+      context: .
+      dockerfile: NotificationService/Dockerfile
+    container_name: notificationservice
+    restart: always
+    environment:
+      - TZ=Africa/Nairobi
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+    expose:
+      - "8080"
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.103
+
+  propertymanagementservice:
+    build:
+      context: .
+      dockerfile: PropertyManagementService/Dockerfile
+    container_name: propertymanagementservice
+    restart: always
+    environment:
+      - TZ=Africa/Nairobi
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+    expose:
+      - "8080"
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.104
+
+  reportingservice:
+    build:
+      context: .
+      dockerfile: ReportingService/Dockerfile
+    container_name: reportingservice
+    restart: always
+    environment:
+      - TZ=Africa/Nairobi
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+    expose:
+      - "8080"
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.105
+
+  tenantmanagementservice:
+    build:
+      context: .
+      dockerfile: TenantManagementService/Dockerfile
+    container_name: tenantmanagementservice
+    restart: always
+    environment:
+      - TZ=Africa/Nairobi
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+    expose:
+      - "8080"
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.106
+
+  approvalworkflowservice:
+    build:
+      context: .
+      dockerfile: ApprovalWorkflowService/Dockerfile
+    container_name: approvalworkflowservice
+    restart: always
+    environment:
+      - TZ=Africa/Nairobi
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+    expose:
+      - "8080"
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.107
+
+  nginx:
+    build: ./Nginx
+    container_name: stegasiproxy
+    depends_on:
+      - authenticationservice
+      - billingservice
+      - notificationservice
+      - propertymanagementservice
+      - reportingservice
+      - tenantmanagementservice
+      - approvalworkflowservice
+    ports:
+      - "9101:9101" # Auth
+      - "9102:9102" # Billing
+      - "9103:9103" # Notification
+      - "9104:9104" # propertymanagementservice
+      - "9105:9105" # Reportingservice
+      - "9106:9106" # TenantManagementService
+      - "9107:9107" # TenantManagementService
+    restart: always
+    networks:
+      stegasi-network:
+        ipv4_address: 10.255.100.100
+
+networks:
+  stegasi-network:
+    external: true

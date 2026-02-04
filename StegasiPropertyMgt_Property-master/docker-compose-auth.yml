@@ -1,0 +1,64 @@
+services:
+  # =========================
+  # Authentication & Authorization Services
+  # =========================
+  
+  authenticationservice:
+    build:
+      context: .
+      dockerfile: AuthenticationService/Dockerfile
+    container_name: authenticationservice
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_PATHBASE=/auth
+      - ConnectionStrings__AuthDb=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      - auth-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    build:
+      context: ./Nginx
+      dockerfile: Dockerfile
+    container_name: nginx
+    ports:
+      - "9101:80"
+      - "8443:443"
+    networks:
+      - proxy-network
+      - auth-network
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - authenticationservice
+
+networks:
+  proxy-network:
+    driver: bridge
+  auth-network:
+    driver: bridge 

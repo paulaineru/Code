@@ -1,0 +1,139 @@
+# ===========================
+# .gitignore for Stegasi Property Management
+# Optimized for Docker Compose Performance
+# ===========================
+
+# ===========================
+# .NET Build Outputs
+# ===========================
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+bld/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.aps
+*.pch
+*.vspscc
+*_i.c
+*_p.c
+*.ncb
+*.bak
+*.cache
+*.ilk
+*.log
+*.sbr
+_ReSharper.*
+*.resharper.user
+*.resharper
+
+# ===========================
+# IDE and Editor Files
+# ===========================
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ===========================
+# Environment and Configuration
+# ===========================
+.env
+.env.*
+secrets.json
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.local.json
+*.pfx
+*.key
+*.cer
+*.pem
+*.crt
+*.jks
+*.keystore
+*.secret
+*.token
+*.credentials
+
+# ===========================
+# Database Files
+# ===========================
+*.db
+*.sqlite
+*.log
+
+# ===========================
+# Test Results
+# ===========================
+TestResults/
+coverage/
+coverage*.json
+
+# ===========================
+# NuGet and Packages
+# ===========================
+*.nupkg
+packages/
+publish/
+
+# ===========================
+# OS Generated Files
+# ===========================
+.DS_Store
+Thumbs.db
+
+# ===========================
+# Docker and Container Files
+# ===========================
+.dockerignore
+docker-compose.override.yml
+#docker-compose.*.yml
+!docker-compose.yml
+.docker/
+docker-data/
+*.dockerfile
+!Dockerfile
+
+# ===========================
+# Temporary and Backup Files
+# ===========================
+*~
+*.bak
+*.tmp
+*.temp
+
+# ===========================
+# Sensitive Directories
+# ===========================
+**/secrets/
+**/local/
+**/private/
+**/sensitive/
+**/config/secrets/
+**/config/local/
+**/config/private/
+**/config/sensitive/
+
+# ===========================
+# Development Tools
+# ===========================
+*.postman_collection.json
+*.postman_collection_new.json
+.qodo/
+
+# ===========================
+# Shell Scripts (if not needed in repo)
+# ===========================
+*.sh

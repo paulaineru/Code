@@ -1,0 +1,292 @@
+# Master compose file that includes all services
+# Use this for full system deployment
+
+services:
+  # Authentication Service
+  authenticationservice:
+    build:
+      context: .
+      dockerfile: AuthenticationService/Dockerfile
+    container_name: authenticationservice
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_PATHBASE=/auth
+      - ConnectionStrings__AuthDb=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      - auth-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Billing Service
+  billingservice:
+    build:
+      context: .
+      dockerfile: BillingService/Dockerfile
+    container_name: billingservice
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_PATHBASE=/billing
+      - ConnectionStrings__BillingDb=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      - billing-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Notification Service
+  notificationservice:
+    build:
+      context: .
+      dockerfile: NotificationService/Dockerfile
+    container_name: notificationservice
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_PATHBASE=/notification
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      - notification-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Property Management Service
+  propertymanagementservice:
+    build:
+      context: .
+      dockerfile: PropertyManagementService/Dockerfile
+    container_name: propertymanagementservice
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_PATHBASE=/property
+      - ConnectionStrings__PropertyDb=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      - property-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Tenant Management Service
+  tenantmanagementservice:
+    build:
+      context: .
+      dockerfile: TenantManagementService/Dockerfile
+    container_name: tenantmanagementservice
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_PATHBASE=/tenant
+      - ConnectionStrings__TenantDb=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      - tenant-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Reporting Service
+  reportingservice:
+    build:
+      context: .
+      dockerfile: ReportingService/Dockerfile
+    container_name: reportingservice
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+    networks:
+      - proxy-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Approval Workflow Service
+  approvalworkflowservice:
+    build:
+      context: .
+      dockerfile: ApprovalWorkflowService/Dockerfile
+    container_name: approvalworkflowservice
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_PATHBASE=/approval
+      - ConnectionStrings__ApprovalWorkflowDb=Host=192.168.185.23;Database=pms;Username=postgres;Password=devOps5.6
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      - approval-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Document Management Service
+  documentmanagementservice:
+    build:
+      context: .
+      dockerfile: DocumentManagementService/Dockerfile
+    container_name: documentmanagementservice
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_PATHBASE=/document
+      - Jwt__Issuer=authenticationservice
+      - Jwt__Audience=StegasiPropertyMgt
+      - Jwt__Key=TxudkeGZUs7Q/INPSIaz5i9rxen46j2GXWKO+iLjKWH+Y1a2rQsNCPHZdDyH1KVe
+      - ELASTICSEARCH_URL=https://eagle.nssfug.org:9200/
+    networks:
+      - document-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Nginx Reverse Proxy
+  nginx:
+    build:
+      context: ./Nginx
+      dockerfile: Dockerfile
+    container_name: nginx
+    ports:
+      - "9101:80"
+      - "8443:443"
+    networks:
+      - proxy-network
+      - auth-network
+      - property-network
+      - approval-network
+      - tenant-network
+      - billing-network
+      - notification-network
+      - document-network
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - authenticationservice
+      - propertymanagementservice
+      - approvalworkflowservice
+      - tenantmanagementservice
+      - billingservice
+      - notificationservice
+      - documentmanagementservice
+
+networks:
+  proxy-network:
+    driver: bridge
+  auth-network:
+    driver: bridge
+  property-network:
+    driver: bridge
+  approval-network:
+    driver: bridge
+  tenant-network:
+    driver: bridge
+  billing-network:
+    driver: bridge
+  notification-network:
+    driver: bridge
+  document-network:
+    driver: bridge 
