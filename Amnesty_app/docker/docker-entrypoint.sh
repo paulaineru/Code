@@ -1,0 +1,244 @@
+#!/bin/bash
+set -e
+
+# =============================================================================
+# Docker Entrypoint Script for CodeIgniter 4 Application
+# =============================================================================
+
+# Color codes for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# =============================================================================
+# Wait for MySQL to be ready
+# =============================================================================
+wait_for_mysql() {
+    log_info "Waiting for MySQL to be ready..."
+
+    local max_attempts=60
+    local attempt=1
+    local host="${database_default_hostname:-mysql}"
+    local user="${database_default_username:-amnesty}"
+    local pass="${database_default_password:-secret}"
+    local db="${database_default_database:-amnesty_db}"
+
+    log_info "Connecting to MySQL host: $host, database: $db, user: $user"
+
+    while [ $attempt -le $max_attempts ]; do
+        # First check if MySQL port is open
+        if nc -z "$host" 3306 2>/dev/null; then
+            log_info "Port 3306 is open on $host"
+            # Then try to actually connect
+            local mysql_output
+            if mysql_output=$(mysql -h "$host" -u "$user" -p"$pass" --skip-ssl -e "SELECT 1" "$db" 2>&1); then
+                log_info "MySQL is ready!"
+                return 0
+            else
+                log_warn "MySQL connection failed: $mysql_output"
+            fi
+        else
+            log_warn "Port 3306 not open on $host (attempt $attempt/$max_attempts)"
+        fi
+
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+
+    log_error "MySQL did not become ready in time!"
+    log_error "Final connection attempt details - Host: $host, User: $user, Database: $db"
+    return 1
+}
+
+# =============================================================================
+# Ensure writable directories exist with proper permissions
+# =============================================================================
+setup_writable_directories() {
+    log_info "Setting up writable directories..."
+
+    local directories=(
+        "/var/www/html/writable/cache"
+        "/var/www/html/writable/logs"
+        "/var/www/html/writable/session"
+        "/var/www/html/writable/uploads"
+        "/var/www/html/writable/debugbar"
+    )
+
+    for dir in "${directories[@]}"; do
+        if [ ! -d "$dir" ]; then
+            mkdir -p "$dir"
+            log_info "Created directory: $dir"
+        fi
+
+        # Ensure proper ownership (www-data for Alpine PHP-FPM)
+        chown -R www-data:www-data "$dir" 2>/dev/null || true
+        chmod -R 775 "$dir" 2>/dev/null || true
+    done
+
+    # Create index.html files for security
+    for dir in "${directories[@]}"; do
+        if [ ! -f "$dir/index.html" ]; then
+            echo '<!DOCTYPE html><html><head><title>403 Forbidden</title></head><body><h1>Directory access is forbidden.</h1></body></html>' > "$dir/index.html"
+        fi
+    done
+
+    log_info "Writable directories configured successfully"
+}
+
+# =============================================================================
+# Run database migrations
+# =============================================================================
+run_migrations() {
+    log_info "Running database migrations..."
+
+    cd /var/www/html
+
+    # Check if migrations table exists and run migrations
+    if php spark migrate --all; then
+        log_info "Migrations completed successfully"
+    else
+        log_error "Migration failed!"
+        # Don't exit on migration failure in development
+        if [ "${CI_ENVIRONMENT}" = "production" ]; then
+            exit 1
+        fi
+    fi
+}
+
+# =============================================================================
+# Optimize application for production
+# =============================================================================
+optimize_production() {
+    if [ "${CI_ENVIRONMENT}" = "production" ]; then
+        log_info "Optimizing for production environment..."
+
+        # Clear any development caches
+        php spark cache:clear 2>/dev/null || true
+
+        log_info "Production optimization complete"
+    fi
+}
+
+# =============================================================================
+# Generate environment file if not exists
+# =============================================================================
+setup_environment() {
+    local env_file="/var/www/html/.env"
+
+    if [ ! -f "$env_file" ]; then
+        log_warn ".env file not found, generating from environment variables..."
+
+        # Create .env from environment variables
+        cat > "$env_file" << EOF
+#--------------------------------------------------------------------
+# ENVIRONMENT (generated by docker-entrypoint.sh)
+#--------------------------------------------------------------------
+CI_ENVIRONMENT = ${CI_ENVIRONMENT:-production}
+
+#--------------------------------------------------------------------
+# APP
+#--------------------------------------------------------------------
+app.baseURL = '${app_baseURL:-http://localhost/}'
+
+#--------------------------------------------------------------------
+# DATABASE
+#--------------------------------------------------------------------
+database.default.hostname = ${database_default_hostname:-mysql}
+database.default.database = ${database_default_database:-amnesty_db}
+database.default.username = ${database_default_username:-amnesty}
+database.default.password = ${database_default_password:-secret}
+database.default.DBDriver = MySQLi
+database.default.port = ${database_default_port:-3306}
+database.default.charset = utf8mb4
+database.default.DBCollat = utf8mb4_general_ci
+
+#--------------------------------------------------------------------
+# API CONFIGURATION
+#--------------------------------------------------------------------
+API_KEY = '${API_KEY:-}'
+
+#--------------------------------------------------------------------
+# REMOTE SYNC CONFIGURATION
+#--------------------------------------------------------------------
+REMOTE_SYNC_URL = '${REMOTE_SYNC_URL:-}'
+REMOTE_SYNC_API_KEY = '${REMOTE_SYNC_API_KEY:-}'
+EOF
+
+        chown www-data:www-data "$env_file"
+        chmod 640 "$env_file"
+
+        log_info ".env file generated"
+    fi
+}
+
+# =============================================================================
+# PHP-FPM Health Check Script
+# =============================================================================
+create_healthcheck_script() {
+    cat > /usr/local/bin/php-fpm-healthcheck << 'HEALTHCHECK_EOF'
+#!/bin/sh
+SCRIPT_NAME=/ping
+SCRIPT_FILENAME=/var/www/html/public/index.php
+REQUEST_METHOD=GET
+
+# Try to connect to PHP-FPM
+if command -v cgi-fcgi > /dev/null 2>&1; then
+    cgi-fcgi -bind -connect 127.0.0.1:9000 > /dev/null 2>&1
+    exit $?
+else
+    # Fallback: check if PHP-FPM process is running
+    pgrep -x php-fpm > /dev/null 2>&1
+    exit $?
+fi
+HEALTHCHECK_EOF
+
+    chmod +x /usr/local/bin/php-fpm-healthcheck
+}
+
+# =============================================================================
+# Main Execution
+# =============================================================================
+main() {
+    log_info "Starting CodeIgniter 4 Application Container"
+    log_info "Environment: ${CI_ENVIRONMENT:-production}"
+
+    # Create health check script
+    create_healthcheck_script
+
+    # Setup directories (run as root initially, then we switch to www-data)
+    setup_writable_directories
+
+    # Setup environment file
+    setup_environment
+
+    # Wait for database
+    wait_for_mysql
+
+    # Run migrations
+    run_migrations
+
+    # Production optimizations
+    optimize_production
+
+    log_info "Container initialization complete"
+    log_info "Starting: $@"
+
+    # Execute the main command
+    exec "$@"
+}
+
+# Run main function with all arguments
+main "$@"

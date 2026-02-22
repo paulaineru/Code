@@ -1,0 +1,95 @@
+# =============================================================================
+# Docker Build Context Exclusions
+# =============================================================================
+
+# Version Control
+.git
+.gitignore
+.gitattributes
+
+# Development Tools
+.claude/
+_agent/
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Testing
+tests/
+phpunit.xml
+phpunit.xml.dist
+.phpunit.result.cache
+coverage/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Local Environment
+.env
+.env.local
+.env.*.local
+Vagrantfile
+.vagrant/
+
+# Temporary and Cache Files
+writable/cache/*
+!writable/cache/.gitkeep
+writable/logs/*
+!writable/logs/.gitkeep
+writable/session/*
+!writable/session/.gitkeep
+writable/debugbar/*
+!writable/debugbar/.gitkeep
+writable/uploads/*
+!writable/uploads/.gitkeep
+
+# Composer (will be installed in build)
+vendor/
+composer.phar
+
+# Node.js (if applicable)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# OS Files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE/Editor backups
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+
+# Docker-related (avoid including in build context)
+docker-compose*.yml
+!docker-compose.yml
+docker-compose.override.yml
+
+# Build artifacts
+build/
+dist/
+*.log
+*.tar
+*.tar.gz
+*.zip
+
+# Security - never include these
+*.pem
+*.key
+*.crt
+*.p12
+credentials.json
+secrets.json

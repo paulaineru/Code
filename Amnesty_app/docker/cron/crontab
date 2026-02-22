@@ -1,0 +1,12 @@
+# =============================================================================
+# Cron Jobs for Background Sync
+# =============================================================================
+
+# Run sync every 5 minutes
+*/5 * * * * cd /var/www/html && php spark sync:run >> /var/www/html/writable/logs/sync.log 2>&1
+
+# Clean old logs weekly (keep 30 days)
+0 2 * * 0 find /var/www/html/writable/logs -type f -mtime +30 -delete 2>/dev/null
+
+# Clean expired sessions daily
+0 3 * * * find /var/www/html/writable/session -type f -mtime +1 -delete 2>/dev/null

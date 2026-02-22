@@ -1,0 +1,163 @@
+services:
+  # ==========================================================================
+  # PHP-FPM Application Service
+  # ==========================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ${APP_TARGET:-production}
+    container_name: amnesty-app
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      # CodeIgniter Environment
+      CI_ENVIRONMENT: ${CI_ENVIRONMENT:-production}
+
+      # Application Configuration
+      app_baseURL: ${APP_BASE_URL:-http://localhost/}
+
+      # Database Configuration
+      database_default_hostname: mysql
+      database_default_database: ${DB_DATABASE:-amnesty_db}
+      database_default_username: ${DB_USERNAME:-amnesty}
+      database_default_password: ${DB_PASSWORD:-secret}
+      database_default_port: 3306
+
+      # API Configuration
+      API_KEY: ${API_KEY:-}
+
+      # Remote Sync Configuration
+      REMOTE_SYNC_URL: ${REMOTE_SYNC_URL:-}
+      REMOTE_SYNC_API_KEY: ${REMOTE_SYNC_API_KEY:-}
+    volumes:
+      # Persistent storage for uploads
+      - uploads-data:/var/www/html/writable/uploads
+      # Logs (optional, for debugging)
+      - logs-data:/var/www/html/writable/logs
+    networks:
+      - amnesty-network
+    healthcheck:
+      test: ["CMD", "php-fpm-healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ==========================================================================
+  # Nginx Web Server
+  # ==========================================================================
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: amnesty-nginx
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "${NGINX_HTTP_PORT:-8080}:80"
+      - "${NGINX_HTTPS_PORT:-8443}:443"
+    volumes:
+      # Nginx configuration
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      # Static files
+      - ./public:/var/www/html/public:ro
+      # SSL certificates (if using HTTPS)
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - amnesty-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ==========================================================================
+  # MySQL Database
+  # ==========================================================================
+  mysql:
+    image: mysql:8.0
+    container_name: amnesty-mysql
+    restart: unless-stopped
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_general_ci
+      --innodb-buffer-pool-size=256M
+      --innodb-log-file-size=64M
+      --max-connections=200
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootsecret}
+      MYSQL_DATABASE: ${DB_DATABASE:-amnesty_db}
+      MYSQL_USER: ${DB_USERNAME:-amnesty}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      # Persistent database storage
+      - mysql-data:/var/lib/mysql
+      # Custom MySQL configuration
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+      # Initialization scripts
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - amnesty-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootsecret}"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # ==========================================================================
+  # Background Sync Worker (Cron Service)
+  # ==========================================================================
+  sync-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ${APP_TARGET:-production}
+    container_name: amnesty-sync-worker
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      CI_ENVIRONMENT: ${CI_ENVIRONMENT:-production}
+      database_default_hostname: mysql
+      database_default_database: ${DB_DATABASE:-amnesty_db}
+      database_default_username: ${DB_USERNAME:-amnesty}
+      database_default_password: ${DB_PASSWORD:-secret}
+      database_default_port: 3306
+      REMOTE_SYNC_URL: ${REMOTE_SYNC_URL:-}
+      REMOTE_SYNC_API_KEY: ${REMOTE_SYNC_API_KEY:-}
+    volumes:
+      - uploads-data:/var/www/html/writable/uploads
+      - logs-data:/var/www/html/writable/logs
+    networks:
+      - amnesty-network
+    entrypoint: ["docker-entrypoint.sh"]
+    command: ["crond", "-f", "-l", "2"]
+
+# ==========================================================================
+# Networks
+# ==========================================================================
+networks:
+  amnesty-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ==========================================================================
+# Volumes
+# ==========================================================================
+volumes:
+  mysql-data:
+    driver: local
+  uploads-data:
+    driver: local
+  logs-data:
+    driver: local
