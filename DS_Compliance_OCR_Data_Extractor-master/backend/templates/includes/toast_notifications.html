@@ -1,0 +1,196 @@
+<div id="oryx-toast-root"
+     class="pointer-events-none fixed bottom-4 left-4 z-[80] flex w-[min(26rem,calc(100vw-2rem))] max-w-sm flex-col gap-3 sm:bottom-6 sm:left-6">
+  {% if messages %}
+    {% for message in messages %}
+      <div class="oryx-toast pointer-events-auto relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-[0_18px_40px_rgba(15,23,42,0.16)] backdrop-blur transition-all duration-300 opacity-0 translate-y-4 scale-[0.98]"
+           data-kind="{{ message.tags|default:'info' }}"
+           data-duration="{% if message.tags == 'error' %}9000{% elif message.tags == 'warning' %}8000{% else %}6000{% endif %}">
+        <div class="flex items-start gap-3">
+          <div class="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl
+                      {% if message.tags == 'error' %}bg-red-50 text-red-600
+                      {% elif message.tags == 'success' %}bg-emerald-50 text-emerald-600
+                      {% elif message.tags == 'warning' %}bg-amber-50 text-amber-600
+                      {% else %}bg-slate-100 text-slate-600{% endif %}">
+            <span class="text-sm font-semibold">
+              {% if message.tags == 'error' %}!{% elif message.tags == 'success' %}✓{% elif message.tags == 'warning' %}!{% else %}i{% endif %}
+            </span>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-slate-900">
+                  {% if message.tags == 'error' %}Something Went Wrong{% elif message.tags == 'success' %}Done{% elif message.tags == 'warning' %}Please Note{% else %}Update{% endif %}
+                </p>
+                <p class="mt-1 text-sm leading-5 text-slate-600 break-words">{{ message }}</p>
+              </div>
+              <button type="button"
+                      class="oryx-toast-close -mr-1 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                      aria-label="Dismiss notification">
+                <span class="text-lg leading-none">&times;</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="oryx-toast-progress absolute inset-x-0 bottom-0 h-1 origin-left
+                    {% if message.tags == 'error' %}bg-red-400/70
+                    {% elif message.tags == 'success' %}bg-emerald-400/70
+                    {% elif message.tags == 'warning' %}bg-amber-400/70
+                    {% else %}bg-slate-400/60{% endif %}"></div>
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  if (window.OryxToasts) return;
+
+  const root = document.getElementById('oryx-toast-root');
+  if (!root) return;
+
+  const TITLE_MAP = {
+    error: 'Something Went Wrong',
+    success: 'Done',
+    warning: 'Please Note',
+    info: 'Update',
+  };
+
+  const STYLE_MAP = {
+    error: {
+      iconBg: 'bg-red-50 text-red-600',
+      border: 'border-red-200/80',
+      progress: 'bg-red-400/70',
+      symbol: '!',
+    },
+    success: {
+      iconBg: 'bg-emerald-50 text-emerald-600',
+      border: 'border-emerald-200/80',
+      progress: 'bg-emerald-400/70',
+      symbol: '✓',
+    },
+    warning: {
+      iconBg: 'bg-amber-50 text-amber-600',
+      border: 'border-amber-200/80',
+      progress: 'bg-amber-400/70',
+      symbol: '!',
+    },
+    info: {
+      iconBg: 'bg-slate-100 text-slate-600',
+      border: 'border-slate-200/80',
+      progress: 'bg-slate-400/60',
+      symbol: 'i',
+    },
+  };
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function durationFor(kind, duration) {
+    if (duration) return duration;
+    if (kind === 'error') return 9000;
+    if (kind === 'warning') return 8000;
+    return 6000;
+  }
+
+  function dismissToast(element) {
+    if (!element || element.dataset.closing === '1') return;
+    element.dataset.closing = '1';
+    element.classList.add('opacity-0', 'translate-y-3', 'scale-[0.98]');
+    element.classList.remove('opacity-100', 'translate-y-0', 'scale-100');
+    window.setTimeout(() => element.remove(), 220);
+  }
+
+  function activateToast(element) {
+    const duration = parseInt(element.dataset.duration || '6000', 10);
+    const closeButton = element.querySelector('.oryx-toast-close');
+    const progress = element.querySelector('.oryx-toast-progress');
+
+    if (closeButton) {
+      closeButton.addEventListener('click', () => dismissToast(element));
+    }
+
+    requestAnimationFrame(() => {
+      element.classList.remove('opacity-0', 'translate-y-4', 'scale-[0.98]');
+      element.classList.add('opacity-100', 'translate-y-0', 'scale-100');
+      if (progress) {
+        progress.style.transition = `transform ${duration}ms linear`;
+        progress.style.transformOrigin = 'left center';
+        requestAnimationFrame(() => {
+          progress.style.transform = 'scaleX(0)';
+        });
+      }
+    });
+
+    if (duration > 0) {
+      let timeoutId = window.setTimeout(() => dismissToast(element), duration);
+      element.addEventListener('mouseenter', () => window.clearTimeout(timeoutId));
+      element.addEventListener('mouseleave', () => {
+        timeoutId = window.setTimeout(() => dismissToast(element), 1800);
+      });
+    }
+  }
+
+  function buildToast(config) {
+    const kind = ['error', 'success', 'warning', 'info'].includes(config.kind) ? config.kind : 'info';
+    const title = config.title || TITLE_MAP[kind];
+    const duration = durationFor(kind, config.duration);
+    const style = STYLE_MAP[kind];
+    const wrapper = document.createElement('div');
+    wrapper.className = `oryx-toast pointer-events-auto relative overflow-hidden rounded-2xl border ${style.border} bg-white/95 p-4 shadow-[0_18px_40px_rgba(15,23,42,0.16)] backdrop-blur transition-all duration-300 opacity-0 translate-y-4 scale-[0.98]`;
+    wrapper.dataset.kind = kind;
+    wrapper.dataset.duration = String(duration);
+    if (config.toastId) wrapper.dataset.toastId = config.toastId;
+    wrapper.innerHTML = `
+      <div class="flex items-start gap-3">
+        <div class="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl ${style.iconBg}">
+          <span class="text-sm font-semibold">${escapeHtml(style.symbol)}</span>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-slate-900">${escapeHtml(title)}</p>
+              <p class="mt-1 text-sm leading-5 text-slate-600 break-words">${escapeHtml(config.message || '')}</p>
+            </div>
+            <button type="button"
+                    class="oryx-toast-close -mr-1 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                    aria-label="Dismiss notification">
+              <span class="text-lg leading-none">&times;</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="oryx-toast-progress absolute inset-x-0 bottom-0 h-1 origin-left ${style.progress}"></div>
+    `;
+    return wrapper;
+  }
+
+  Array.from(root.querySelectorAll('.oryx-toast')).forEach(activateToast);
+
+  window.OryxToasts = {
+    push(config) {
+      const toast = buildToast(config || {});
+      if (config && config.toastId) {
+        const existing = root.querySelector(`[data-toast-id="${config.toastId}"]`);
+        if (existing) existing.remove();
+      }
+      root.appendChild(toast);
+      activateToast(toast);
+      return toast;
+    },
+    dismiss(target) {
+      if (!target) return;
+      if (typeof target === 'string') {
+        dismissToast(root.querySelector(`[data-toast-id="${target}"]`));
+        return;
+      }
+      dismissToast(target);
+    },
+  };
+})();
+</script>

@@ -1,0 +1,68 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Oryx{% endblock %}</title>
+  <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}" />
+
+  {# Fonts #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+
+  {# Tailwind CDN #}
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              700: '#162035',
+              800: '#121A2D',
+              900: '#0F1A2E',
+            },
+            primary: {
+              DEFAULT: '#1A73E8',
+              50:  '#E8F0FE',
+              100: '#D2E3FC',
+              500: '#1A73E8',
+              600: '#1557B0',
+              700: '#0D47A1',
+            },
+            surface: {
+              DEFAULT:   '#F8F9FA',
+              container: '#F1F3F4',
+            },
+          },
+          fontFamily: {
+            heading: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            sans:    ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Material Symbols utility */
+    .icon { font-family: 'Material Symbols Rounded'; font-weight: normal; font-style: normal;
+            font-size: 20px; line-height: 1; letter-spacing: normal; text-transform: none;
+            display: inline-block; white-space: nowrap; word-wrap: normal; direction: ltr;
+            -webkit-font-smoothing: antialiased; font-variation-settings: 'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
+    .icon-filled { font-variation-settings: 'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24; }
+    .icon-sm  { font-size: 18px; }
+    .icon-md  { font-size: 22px; }
+    .icon-lg  { font-size: 28px; }
+    h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', sans-serif; }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-surface text-slate-900 font-sans antialiased">
+  {% block body %}{% endblock %}
+  {% include "includes/toast_notifications.html" %}
+</body>
+</html>

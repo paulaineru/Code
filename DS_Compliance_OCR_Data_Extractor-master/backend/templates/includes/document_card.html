@@ -1,0 +1,59 @@
+{# Usage: {% include "includes/document_card.html" with job=job %} #}
+{% load humanize %}
+<a href="{% url 'document_detail' job.id %}"
+   class="block bg-white rounded-xl border border-slate-200 p-5 hover:border-slate-300 hover:shadow-sm transition-all group">
+  <div class="flex items-start gap-4">
+
+    {# File icon #}
+    <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
+      {% with ext=job.filename|lower %}
+        {% if '.pdf' in ext %}bg-red-50 text-red-500
+        {% elif '.png' in ext or '.jpg' in ext or '.jpeg' in ext %}bg-blue-50 text-blue-500
+        {% else %}bg-slate-100 text-slate-500{% endif %}
+      {% endwith %}">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+      </svg>
+    </div>
+
+    {# Info #}
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="font-medium text-slate-900 truncate text-sm">{{ job.filename }}</span>
+        {% include "includes/status_badge.html" with status=job.status label=job.get_status_display %}
+      </div>
+      <div class="text-xs text-slate-500 space-x-2">
+        {% if show_owner %}<span class="font-medium text-slate-600">{{ job.owner.username }}</span><span>·</span>{% endif %}
+        {% if job.department %}<span>{{ job.department.name }}</span><span>·</span>{% endif %}
+        <span>{{ job.get_document_type_display }}</span>
+        <span>·</span>
+        <span>{{ job.created_at|timesince }} ago</span>
+        {% if job.batch_id %}
+          <span>·</span>
+          <span>Batch {{ job.batch_id|slice:":8" }}</span>
+        {% endif %}
+        {% if job.total_pages %}
+          <span>·</span>
+          <span>{{ job.total_pages }} page{{ job.total_pages|pluralize }}</span>
+        {% endif %}
+        <span>·</span>
+        <span>{{ job.file_size_display }}</span>
+      </div>
+      {% if job.status == 'needs_review' %}
+        <div class="mt-1.5 text-xs font-medium text-amber-600">
+          {{ job.flag_count }} item{{ job.flag_count|pluralize }} need review
+        </div>
+      {% elif job.status == 'stopped' %}
+        <div class="mt-1.5 text-xs font-medium text-rose-600">
+          Processing was stopped before completion
+        </div>
+      {% endif %}
+    </div>
+
+    {# Chevron #}
+    <svg class="w-4 h-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0 mt-0.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+    </svg>
+  </div>
+</a>

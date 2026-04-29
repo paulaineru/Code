@@ -1,0 +1,184 @@
+{% extends "app_shell.html" %}
+{% load humanize document_filters %}
+
+{% block title %}Audit Log Oryx{% endblock %}
+{% block breadcrumbs %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="flex items-start justify-between mb-8">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900">{{ page_title }}</h1>
+    <p class="text-sm text-slate-500 mt-1">{{ page_subtitle }}</p>
+  </div>
+  <div class="text-xs text-slate-400 mt-1 self-end">
+    {{ page_obj.paginator.count }} entr{{ page_obj.paginator.count|pluralize:"y,ies" }}
+  </div>
+</div>
+
+{# Filters #}
+<form method="get" class="bg-white rounded-2xl border border-slate-200 p-4 mb-6 shadow-sm">
+  <div class="flex items-center gap-4 flex-wrap">
+    {% if show_user_column %}
+    <div class="flex items-center gap-2 flex-1 min-w-48">
+      <span class="icon icon-sm text-slate-400">person_search</span>
+      <input type="text" name="user" value="{{ user_filter }}" placeholder="Filter by username…"
+             class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+    </div>
+    {% endif %}
+
+    <div class="flex items-center gap-2">
+      <span class="icon icon-sm text-slate-400">filter_list</span>
+      <select name="action"
+              class="px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/40">
+        <option value="">All actions</option>
+        {% for act in distinct_actions %}
+          <option value="{{ act }}" {% if action_filter == act %}selected{% endif %}>{{ act|field_label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <button type="submit"
+            class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-xl hover:bg-primary-600 transition-colors">
+      Filter
+    </button>
+    {% if user_filter or action_filter %}
+      <a href="{% url 'audit_log' %}"
+         class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors">
+        Clear
+      </a>
+    {% endif %}
+  </div>
+</form>
+
+{# Table #}
+<div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+  {% if page_obj.object_list %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="sticky top-0 z-10">
+          <tr class="border-b border-slate-100 bg-surface-container">
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Timestamp</th>
+            {% if show_user_column %}<th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">User</th>{% endif %}
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Action</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Document</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Details</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">IP</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for log in page_obj %}
+          <tr class="hover:bg-surface-container/50 transition-colors">
+            <td class="px-5 py-3.5 text-slate-500 whitespace-nowrap font-mono text-xs">
+              <span title="{{ log.timestamp|date:'c' }}">{{ log.timestamp|naturaltime }}</span>
+            </td>
+            {% if show_user_column %}
+            <td class="px-5 py-3.5">
+              {% if log.user %}
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-semibold text-primary flex-shrink-0">
+                    {{ log.user.get_initials }}
+                  </div>
+                  <span class="font-medium text-slate-800">{{ log.user.username }}</span>
+                </div>
+              {% else %}
+                <span class="text-slate-400 italic">anonymous</span>
+              {% endif %}
+            </td>
+            {% endif %}
+            <td class="px-5 py-3.5">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap
+                           {% if log.action == 'login' %}bg-blue-50 text-blue-700
+                           {% elif log.action == 'upload' %}bg-emerald-50 text-emerald-700
+                           {% elif log.action == 'review_complete' %}bg-violet-50 text-violet-700
+                           {% elif log.action == 'flags_approved' %}bg-amber-50 text-amber-700
+                           {% elif log.action == 'settings_update' %}bg-slate-100 text-slate-600
+                           {% else %}bg-slate-100 text-slate-600{% endif %}">
+                <span class="icon" style="font-size:13px">
+                  {% if log.action == 'login' %}login
+                  {% elif log.action == 'upload' %}upload_file
+                  {% elif log.action == 'review_complete' %}check_circle
+                  {% elif log.action == 'flags_approved' %}done_all
+                  {% elif log.action == 'settings_update' %}settings
+                  {% else %}history{% endif %}
+                </span>
+                {{ log.action|field_label }}
+              </span>
+            </td>
+            <td class="px-5 py-3.5">
+              {% if log.job %}
+                <a href="{% url 'document_detail' log.job.id %}"
+                   class="text-primary hover:underline truncate max-w-[140px] block">{{ log.job.filename }}</a>
+              {% else %}
+                <span class="text-slate-400">—</span>
+              {% endif %}
+            </td>
+            <td class="px-5 py-3.5 text-slate-500 text-xs max-w-[200px]">
+              {% if log.details %}
+                {% for k, v in log.details.items %}
+                  <div><span class="font-medium text-slate-600">{{ k|field_label }}:</span> {{ v }}</div>
+                {% endfor %}
+              {% else %}—{% endif %}
+            </td>
+            <td class="px-5 py-3.5 text-slate-400 font-mono text-xs whitespace-nowrap">
+              {{ log.ip_address|default:"—" }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# Pagination footer — always shows count, controls only when multi-page #}
+    <div class="px-5 py-3.5 border-t border-slate-100 flex items-center justify-between">
+      <p class="text-xs text-slate-500">
+        Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+      </p>
+      {% if page_obj.paginator.num_pages > 1 %}
+      <div class="flex items-center gap-1">
+        {% if page_obj.has_previous %}
+          <a href="?{% if user_filter %}user={{ user_filter }}&{% endif %}{% if action_filter %}action={{ action_filter }}&{% endif %}page={{ page_obj.previous_page_number }}"
+             class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors">
+            <span class="icon icon-sm">chevron_left</span>
+          </a>
+        {% else %}
+          <span class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 cursor-not-allowed">
+            <span class="icon icon-sm">chevron_left</span>
+          </span>
+        {% endif %}
+
+        {% for num in page_range %}
+          {% if num == ellipsis %}
+            <span class="w-8 h-8 flex items-center justify-center text-slate-300 text-xs select-none">…</span>
+          {% elif num == page_obj.number %}
+            <span class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-semibold bg-primary text-white">{{ num }}</span>
+          {% else %}
+            <a href="?{% if user_filter %}user={{ user_filter }}&{% endif %}{% if action_filter %}action={{ action_filter }}&{% endif %}page={{ num }}"
+               class="w-8 h-8 rounded-lg flex items-center justify-center text-xs text-slate-600 hover:bg-slate-100 transition-colors">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+          <a href="?{% if user_filter %}user={{ user_filter }}&{% endif %}{% if action_filter %}action={{ action_filter }}&{% endif %}page={{ page_obj.next_page_number }}"
+             class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors">
+            <span class="icon icon-sm">chevron_right</span>
+          </a>
+        {% else %}
+          <span class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 cursor-not-allowed">
+            <span class="icon icon-sm">chevron_right</span>
+          </span>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+  {% else %}
+    <div class="text-center py-20">
+      <span class="icon icon-lg text-slate-300 block mb-3">policy</span>
+      <p class="text-sm font-semibold text-slate-600 mb-1">No audit entries found</p>
+      <p class="text-xs text-slate-400">
+        {% if user_filter or action_filter %}Adjust your filters{% else %}Actions will appear here as users interact with the system{% endif %}
+      </p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

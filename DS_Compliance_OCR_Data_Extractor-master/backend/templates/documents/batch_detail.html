@@ -1,0 +1,98 @@
+{% extends "app_shell.html" %}
+
+{% block title %}Batch {{ batch.id|slice:":8" }}{% endblock %}
+{% block breadcrumbs %}Batch{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-start justify-between gap-4 flex-wrap">
+    <div>
+      <div class="flex items-center gap-3 mb-2">
+        <h1 class="text-xl font-bold text-slate-900">Batch {{ batch.id|slice:":8" }}</h1>
+        {% include "includes/status_badge.html" with status=batch.status label=batch.status_label %}
+      </div>
+      <p class="text-sm text-slate-500">
+        {{ batch.total_jobs }} document{{ batch.total_jobs|pluralize }} uploaded {{ batch.created_at|timesince }} ago.
+        Each file is being processed as its own independent job.
+      </p>
+    </div>
+    <div class="flex gap-3">
+      {% if can_upload %}
+      <a href="{% url 'upload' %}" class="px-4 py-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm font-medium text-slate-700 transition-colors">
+        Upload more
+      </a>
+      {% endif %}
+      <a href="{% url 'document_list' %}" class="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm font-medium text-white transition-colors">
+        View all documents
+      </a>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl border border-slate-200 p-5">
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-3">
+      <div>
+        <div class="text-xs font-medium uppercase tracking-wide text-slate-500 mb-1">Progress</div>
+        <div class="text-sm text-slate-700">
+          {{ batch.finished_jobs }} of {{ batch.total_jobs }} jobs finished
+        </div>
+      </div>
+      <div class="text-right text-sm text-slate-500">
+        <div>{{ batch.progress_percent }}% complete</div>
+        <div>{{ batch.get_requested_document_type_display }} batch</div>
+        {% if show_owner %}
+          <div>Owner: {{ batch.owner.username }}</div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
+      <div class="h-full rounded-full {% if batch.error_jobs %}bg-amber-500{% elif batch.review_jobs %}bg-blue-500{% else %}bg-emerald-500{% endif %}" style="width: {{ batch.progress_percent }}%"></div>
+    </div>
+    {% if should_auto_refresh %}
+      <p class="mt-3 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+        This batch is still running. The page refreshes automatically while active jobs remain.
+      </p>
+    {% elif batch.error_jobs %}
+      <p class="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+        Some jobs stopped or failed. Open the affected documents below to inspect and restart them if needed.
+      </p>
+    {% endif %}
+  </div>
+
+  <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+    {% include "includes/stat_card.html" with label="Total" value=batch.total_jobs color="slate" %}
+    {% include "includes/stat_card.html" with label="Active" value=batch.active_jobs color="blue" %}
+    {% include "includes/stat_card.html" with label="Review" value=batch.review_jobs color="amber" %}
+    {% include "includes/stat_card.html" with label="Completed" value=batch.completed_jobs color="emerald" %}
+    {% include "includes/stat_card.html" with label="Errors" value=batch.error_jobs color="red" %}
+  </div>
+
+  <div>
+    <div class="flex items-center justify-between gap-4 mb-4">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">Batch jobs</h2>
+        <p class="text-sm text-slate-500">Every uploaded file keeps its own lifecycle, review path, and downloadable results.</p>
+      </div>
+    </div>
+
+    {% if jobs %}
+      <div class="space-y-3">
+        {% for job in jobs %}
+          {% include "includes/document_card.html" with job=job show_owner=show_owner %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="bg-white rounded-xl border border-slate-200 p-8 text-center text-sm text-slate-500">
+        No jobs were found in this batch.
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if should_auto_refresh %}
+  <script>
+    window.setTimeout(function() {
+      window.location.reload();
+    }, 5000);
+  </script>
+{% endif %}
+{% endblock %}

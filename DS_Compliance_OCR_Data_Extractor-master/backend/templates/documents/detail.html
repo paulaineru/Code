@@ -1,0 +1,711 @@
+{% extends "app_shell.html" %}
+{% load humanize document_filters %}
+
+{% block title %}{{ job.filename }} Oryx {% endblock %}
+{% block breadcrumbs %}
+  <a href="{% url 'document_list' %}" class="hover:text-slate-700">Documents</a>
+  <span class="mx-2">/</span>
+  <span class="text-slate-700 font-medium">{{ job.filename }}</span>
+{% endblock %}
+
+{% block extra_head %}{% endblock %}
+
+{% block content %}
+
+{# ─── Processing state ─────────────────────────────────────────── #}
+{% if job.status == 'pending' or job.status == 'processing' or job.status == 'reviewing' or job.status == 'stopping' %}
+<div class="flex items-center justify-center py-24" id="processing-state">
+  <div class="text-center max-w-sm w-full">
+    <div class="w-16 h-16 mx-auto mb-6 relative">
+      <div class="w-16 h-16 rounded-full border-4 border-slate-100 border-t-emerald-500 animate-spin"></div>
+    </div>
+    {% if job.status == 'reviewing' %}
+    <h2 class="text-lg font-semibold text-slate-900 mb-2">Applying review updates...</h2>
+    <p class="text-sm text-slate-500 mb-3">Large review approvals are processed in the background so the application stays responsive. This page will refresh when the updated download files are ready.</p>
+    {% elif job.status == 'stopping' %}
+    <h2 class="text-lg font-semibold text-slate-900 mb-2">Stopping processing...</h2>
+    <p class="text-sm text-slate-500 mb-3">We are letting the current page finish cleanly, then the document will move to a stopped state.</p>
+    {% else %}
+    <h2 class="text-lg font-semibold text-slate-900 mb-2">Processing your document…</h2>
+    <p class="text-sm text-slate-500 mb-3">This usually takes 5–30 seconds per page. You can close this tab, find the document in your list when it's done.</p>
+    {% endif %}
+
+    {# Progress bar — shown once total_pages is known #}
+    <div id="progress-wrap" class="{% if not job.total_pages or job.status == 'reviewing' %}hidden{% endif %} mb-4">
+      <div class="flex justify-between text-xs text-slate-400 mb-1">
+        <span id="progress-label">Page <span id="pages-done">{{ job.pages_done }}</span> of <span id="total-pages">{{ job.total_pages }}</span></span>
+        <span id="progress-pct">{% if job.total_pages %}{% widthratio job.pages_done job.total_pages 100 %}%{% endif %}</span>
+      </div>
+      <div class="w-full bg-slate-100 rounded-full h-2">
+        <div id="progress-bar" class="bg-emerald-500 h-2 rounded-full transition-all duration-500"
+             style="width: {% if job.total_pages %}{% widthratio job.pages_done job.total_pages 100 %}%{% else %}0%{% endif %}"></div>
+      </div>
+    </div>
+
+    <div class="inline-flex items-center gap-2 text-xs text-slate-400">
+      {% include "includes/status_badge.html" with status=job.status label=job.get_status_display %}
+      <span>{{ job.filename }}</span>
+    </div>
+    {% if can_manage_job and job.can_stop %}
+    <form method="post" action="{% url 'stop_job' job.id %}" class="mt-4">
+      {% csrf_token %}
+      <button type="submit"
+              onclick="return window.confirm('Stop processing this document? Any partial OCR results will be cleared when the stop completes.');"
+              class="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50">
+        Stop processing
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+<script>
+(function () {
+  const STATUS_URL = "{% url 'document_status' job.id %}";
+  const TERMINAL = new Set(["completed", "needs_review", "failed", "stopped"]);
+  const REVIEWING = "{{ job.status }}" === "reviewing";
+  let interval = null;
+
+  function poll() {
+    fetch(STATUS_URL, {
+      headers: {
+        'X-Oryx-Background': '1',
+      },
+      credentials: 'same-origin',
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.expired && data.login_url) {
+          window.location.assign(data.login_url);
+          return;
+        }
+        // Update progress bar
+        if (!REVIEWING && data.total_pages > 0) {
+          const pct = Math.round((data.pages_done / data.total_pages) * 100);
+          document.getElementById("progress-wrap").classList.remove("hidden");
+          document.getElementById("pages-done").textContent = data.pages_done;
+          document.getElementById("total-pages").textContent = data.total_pages;
+          document.getElementById("progress-pct").textContent = pct + "%";
+          document.getElementById("progress-bar").style.width = pct + "%";
+        }
+        // Reload page when done
+        if (TERMINAL.has(data.status)) {
+          clearInterval(interval);
+          window.location.reload();
+        }
+      })
+      .catch(() => {}); // silently ignore network errors; keep polling
+  }
+
+  interval = setInterval(poll, 2000);
+  poll(); // immediate first check
+})();
+</script>
+
+{# ─── Failed state ─────────────────────────────────────────────── #}
+{% elif job.status == 'failed' %}
+<div class="max-w-2xl">
+  <div class="bg-red-50 border border-red-200 rounded-xl p-6">
+    <div class="flex gap-4">
+      <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </div>
+      <div>
+        <h3 class="font-semibold text-red-800 mb-1">Processing failed</h3>
+        <p class="text-sm text-red-700">This document could not be processed. Please contact your system administrator for assistance.</p>
+        <p class="text-xs text-red-400 mt-1">Reference: {{ job.id }}</p>
+        {% if can_manage_job and job.can_restart %}
+        <form method="post" action="{% url 'restart_job' job.id %}" class="mt-4">
+          {% csrf_token %}
+          <button type="submit"
+                  class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800">
+            Restart processing
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ─── Results state ────────────────────────────────────────────── #}
+{% elif job.status == 'stopped' %}
+<div class="max-w-2xl">
+  <div class="bg-rose-50 border border-rose-200 rounded-xl p-6">
+    <div class="flex gap-4">
+      <div class="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-5 h-5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6M5 7h14M7 5h10a1 1 0 011 1v12a1 1 0 01-1 1H7a1 1 0 01-1-1V6a1 1 0 011-1z"/>
+        </svg>
+      </div>
+      <div>
+        <h3 class="font-semibold text-rose-800 mb-1">Processing stopped</h3>
+        <p class="text-sm text-rose-700">This document was stopped before OCR finished. You can restart it whenever you are ready.</p>
+        <p class="text-xs text-rose-400 mt-1">Reference: {{ job.id }}</p>
+        {% if can_manage_job and job.can_restart %}
+        <form method="post" action="{% url 'restart_job' job.id %}" class="mt-4">
+          {% csrf_token %}
+          <button type="submit"
+                  class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800">
+            Restart processing
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% else %}
+
+{# Header card #}
+<div class="bg-white rounded-xl border border-slate-200 p-6 mb-5">
+  <div class="flex items-start gap-4">
+    <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+      <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+      </svg>
+    </div>
+    <div class="flex-1 min-w-0">
+      <h1 class="text-lg font-bold text-slate-900 truncate">{{ job.filename }}</h1>
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-slate-500">
+        {% include "includes/status_badge.html" with status=job.status label=job.get_status_display %}
+        {% if show_owner %}<span>Owner: {{ job.owner.username }}</span>{% endif %}
+        {% if job.department %}<span>{{ job.department.name }}</span>{% endif %}
+        <span>{{ job.get_document_type_display }}</span>
+        <span>{{ job.created_at|date:"d M Y, H:i" }}</span>
+        <span>{{ job.file_size_display }}</span>
+        {% if job.total_pages %}<span>{{ job.total_pages }} page{{ job.total_pages|pluralize }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="flex gap-2 flex-shrink-0">
+      <a href="{% url 'export_download' job.id 'xlsx' %}"
+         class="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+        <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        Download Excel
+      </a>
+      <a href="{% url 'export_download' job.id 'docx' %}"
+         class="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        Download Word
+      </a>
+    </div>
+  </div>
+</div>
+
+{# Needs review alert #}
+{% if job.status == 'needs_review' %}
+  {% with fc=job.flag_count %}
+  <div class="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 mb-5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+      <span class="text-sm font-medium text-amber-800">{{ fc }} item{{ fc|pluralize }} need{{ fc|pluralize:"s," }} your review — verify before downloading the final files.</span>
+    </div>
+    <a href="#" onclick="switchTab('review'); return false;" class="text-xs font-semibold text-amber-700 hover:text-amber-900 transition-colors">Review now →</a>
+  </div>
+  {% endwith %}
+{% endif %}
+
+{# Two-column layout #}
+<div class="grid grid-cols-1 xl:grid-cols-5 gap-5 items-start">
+
+  {# ─── Left: tabs (60%) ──────────────────────────────────────── #}
+  <div class="xl:col-span-3">
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden xl:h-[calc(85vh-8.5rem)] min-h-[32rem] flex flex-col">
+      {# Tab bar #}
+      <div class="flex border-b border-slate-200 px-4 flex-shrink-0 bg-white">
+        <button data-tab="extracted" onclick="switchTab('extracted')"
+                class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-emerald-500 text-emerald-600 -mb-px">
+          Summary
+        </button>
+        <button data-tab="tables" onclick="switchTab('tables')"
+                class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 -mb-px">
+          Tables
+        </button>
+        <button data-tab="review" onclick="switchTab('review')"
+                class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 -mb-px flex items-center gap-1.5">
+          Needs review
+          {% with fc=job.flag_count %}{% if fc %}
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">{{ fc }}</span>
+          {% endif %}{% endwith %}
+        </button>
+      </div>
+
+      {# ── Extracted data tab ── #}
+      <div id="tab-extracted" class="p-5 flex-1 overflow-y-auto min-h-0 overscroll-contain">
+        {# Page selector pills #}
+        {% if job.pages.all %}
+        <div class="sticky top-0 z-10 bg-white -mx-5 px-5 pb-3 mb-5 border-b border-slate-100">
+          <div class="flex flex-wrap gap-1.5 pt-1">
+            {% for page in job.pages.all %}
+              <button onclick="showPage({{ page.page_number }})"
+                      data-page="{{ page.page_number }}"
+                      class="page-pill px-3 py-1 rounded-full text-xs font-medium border transition-colors
+                             {% if forloop.first %}bg-slate-900 text-white border-slate-900{% else %}border-slate-200 text-slate-600 hover:border-slate-300{% endif %}">
+                Page {{ page.page_number }}
+                {% if page.avg_confidence or page.avg_confidence == 0 %}
+                  <span class="ml-1
+                    {% if page.avg_confidence >= 0.85 %}text-emerald-400
+                    {% elif page.avg_confidence >= 0.50 %}text-amber-400
+                    {% else %}text-red-400{% endif %}">
+                    {{ page.avg_confidence|percent:0 }}%
+                  </span>
+                {% endif %}
+              </button>
+            {% endfor %}
+          </div>
+        </div>
+
+        {% for page in job.pages.all %}
+        <div id="page-content-{{ page.page_number }}" class="page-content {% if not forloop.first %}hidden{% endif %}">
+
+          {# ── Key values grid ── #}
+          {% if page.extracted_fields %}
+          <div class="grid grid-cols-2 gap-3 mb-5">
+            {% for k, v in page.extracted_fields.items %}
+            <div class="bg-slate-50 rounded-xl border border-slate-100 px-4 py-3">
+              <p class="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-1">{{ k|field_label }}</p>
+              <p class="text-base font-semibold text-slate-900 truncate" title="{{ v }}">{{ v }}</p>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="flex items-center gap-3 bg-slate-50 rounded-xl border border-slate-100 px-4 py-5 mb-5">
+            <svg class="w-8 h-8 text-slate-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <div>
+              <p class="text-sm font-medium text-slate-600">No structured fields found</p>
+              <p class="text-xs text-slate-400 mt-0.5">The document was read but no labelled values could be extracted. Check the document text below.</p>
+            </div>
+          </div>
+          {% endif %}
+
+          {# ── Collapsible document text ── #}
+          <div class="border border-slate-100 rounded-xl overflow-hidden">
+            <button type="button"
+                    onclick="toggleDocText('doctext-{{ page.page_number }}', this)"
+                    class="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left">
+              <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Full document text</span>
+              <svg class="doctext-chevron w-4 h-4 text-slate-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div id="doctext-{{ page.page_number }}" class="hidden px-4 py-4 border-t border-slate-100">
+              {{ page.extracted_text|render_ocr_text:page.unreviewed_flags_list }}
+            </div>
+          </div>
+
+        </div>
+        {% endfor %}
+
+        {% else %}
+          <p class="text-sm text-slate-400 py-8 text-center">No pages extracted yet.</p>
+        {% endif %}
+      </div>
+
+      {# ── Tables tab ── #}
+      <div id="tab-tables" class="p-5 hidden flex-1 overflow-y-auto min-h-0 overscroll-contain">
+        {% for page in job.pages.all %}
+          {% if page.tables_json %}
+            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2
+                       {% if not forloop.first %}mt-5{% endif %}">
+              Page {{ page.page_number }}
+            </p>
+            <div class="space-y-2">
+            {% for table in page.tables_json %}
+            {# Convert integers to strings first — Django's |add: filter returns "" when str+int fails #}
+            {% with pg=page.page_number|stringformat:"s" ctr=forloop.counter|stringformat:"s" %}
+            {% with tbl_id="tbl-p"|add:pg|add:"-t"|add:ctr total_rows=table|length tbl_num=forloop.counter %}
+            <div class="rounded-xl border border-slate-200 overflow-hidden">
+              {# Collapsible header #}
+              <button type="button"
+                      onclick="toggleTable('{{ tbl_id }}-body', this)"
+                      class="w-full flex items-center justify-between px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-left">
+                <div class="flex items-center gap-2">
+                  <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/>
+                  </svg>
+                  <span class="text-xs font-semibold text-slate-600">Table {{ tbl_num }}</span>
+                  <span class="text-[11px] text-slate-400">{{ total_rows|add:"-1" }} row{{ total_rows|add:"-1"|pluralize }}</span>
+                </div>
+                <svg class="tbl-chevron w-4 h-4 text-slate-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+              {# Table body — starts closed; toggleTable opens it #}
+              <div id="{{ tbl_id }}-body" class="hidden">
+                <div class="overflow-x-auto">
+                  <table class="w-full text-xs" id="{{ tbl_id }}">
+                    {% for row in table %}
+                    <tr data-row="{{ forloop.counter }}"
+                        class="{% if forloop.first %}bg-white font-semibold border-b border-slate-200{% elif forloop.counter|divisibleby:2 %}bg-white{% else %}bg-slate-50/50{% endif %}
+                               {% if forloop.counter > 11 and not forloop.first %}tbl-extra hidden{% endif %}">
+                      {% for cell in row %}
+                      <td class="px-3 py-2 border-b border-slate-100 whitespace-nowrap align-top {% if cell.needs_review %}bg-amber-50 text-amber-900 font-medium{% else %}text-slate-700{% endif %}"
+                          {% if cell.review_title %}title="{{ cell.review_title }}"{% endif %}>{{ cell|render_table_cell }}</td>
+                      {% endfor %}
+                    </tr>
+                    {% endfor %}
+                  </table>
+                </div>
+                {% if total_rows > 11 %}
+                <div class="px-3 py-2 border-t border-slate-100 bg-slate-50">
+                  <button onclick="expandTable('{{ tbl_id }}', this)"
+                          class="text-xs text-primary hover:text-primary-700 font-medium flex items-center gap-1 transition-colors">
+                    <svg class="expand-chevron w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                    <span class="expand-label">Show all {{ total_rows|add:"-1" }} rows</span>
+                  </button>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            {% endwith %}
+            {% endwith %}
+            {% endfor %}
+            </div>
+          {% endif %}
+        {% empty %}
+          <p class="text-sm text-slate-400 py-8 text-center">No tables extracted.</p>
+        {% endfor %}
+      </div>
+
+      {# ── Needs review tab ── #}
+      <div id="tab-review" class="p-5 hidden flex-1 overflow-y-auto min-h-0 overscroll-contain">
+        {% if job.flag_count %}
+          {# IDs are packed into a single hidden field on submit to avoid DATA_UPLOAD_MAX_NUMBER_FIELDS #}
+          <form id="review-form" method="post" action="{% url 'approve_flags' job.id %}"
+                onsubmit="packFlagIds(this)" class="h-full flex flex-col min-h-0">
+            {% csrf_token %}
+            <input type="hidden" name="flag_ids" id="packed-flag-ids">
+            <input type="hidden" name="approve_all" id="approve-all-field" value="">
+            {# Toolbar #}
+            <div class="mb-3 flex items-center justify-between flex-shrink-0">
+              <span class="text-xs text-slate-500">{{ job.flag_count }} item{{ job.flag_count|pluralize }} need{{ job.flag_count|pluralize:"s," }} attention</span>
+              <button type="submit" onclick="document.getElementById('approve-all-field').value='1'"
+                      class="text-xs font-semibold text-emerald-600 hover:text-emerald-800 transition-colors">
+                Approve all
+              </button>
+            </div>
+            <div class="rounded-lg border border-slate-200 overflow-hidden flex-1 min-h-0">
+              <div class="h-full overflow-y-auto">
+                <table class="w-full text-xs">
+                  <thead class="bg-slate-50 sticky top-0 z-10 shadow-[0_1px_0_0_#e2e8f0]">
+                    <tr>
+                      <th class="px-3 py-2 text-left font-semibold text-slate-500 w-1/2">Word</th>
+                      <th class="px-3 py-2 text-left font-semibold text-slate-500">Confidence</th>
+                      <th class="px-3 py-2 text-left font-semibold text-slate-500">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    {% for page in job.pages.all %}
+                      {% with page_flags=page.flags.all %}
+                      {# Only render the group if this page has unreviewed flags #}
+                      {% for flag in page_flags %}{% if not flag.reviewed %}{% if forloop.first %}
+                      <tr class="bg-slate-50/80">
+                        <td colspan="3" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Page {{ page.page_number }}
+                        </td>
+                      </tr>
+                      {% endif %}
+                      <tr class="hover:bg-amber-50/40 review-row transition-colors" data-flag-id="{{ flag.id }}">
+                        <td class="px-3 py-2.5 font-mono text-slate-900 break-all">{{ flag.word }}</td>
+                        <td class="px-3 py-2.5">
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold
+                            {% if flag.confidence_level == 'low' %}bg-red-50 text-red-700
+                            {% elif flag.confidence_level == 'medium' %}bg-amber-50 text-amber-700
+                            {% else %}bg-emerald-50 text-emerald-700{% endif %}">
+                            {% widthratio flag.confidence 1 100 %}%
+                          </span>
+                        </td>
+                        <td class="px-3 py-2.5">
+                          <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" data-flag-id="{{ flag.id }}"
+                                   class="flag-checkbox rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                            <span class="text-emerald-600 font-medium">Accept</span>
+                          </label>
+                        </td>
+                      </tr>
+                      {% endif %}{% endfor %}
+                      {% endwith %}
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="mt-4 flex-shrink-0">
+              <button type="submit"
+                      class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors">
+                Submit selected
+              </button>
+            </div>
+          </form>
+          <script>
+          function packFlagIds(form) {
+            if (document.getElementById('approve-all-field').value === '1') return;
+            const ids = [...form.querySelectorAll('.flag-checkbox:checked')]
+              .map(cb => cb.dataset.flagId).join(',');
+            document.getElementById('packed-flag-ids').value = ids;
+          }
+          </script>
+          {% include "includes/reviewed_flags_table.html" with job=job %}
+        {% else %}
+          <div class="text-center py-10">
+            <svg class="w-8 h-8 text-emerald-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            <p class="text-sm text-slate-500">All items reviewed.</p>
+          </div>
+          {% include "includes/reviewed_flags_table.html" with job=job %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ─── Right: page image (40%) ────────────────────────────────── #}
+  <div class="xl:col-span-2">
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden xl:sticky xl:top-20 flex flex-col">
+      <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Page preview</span>
+        <div class="flex items-center gap-2">
+          {% with pages=job.pages.all %}
+          <button id="prev-page" onclick="navPage(-1)" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center disabled:opacity-40 transition-colors">
+            <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <span id="page-indicator" class="text-xs text-slate-500">1 / {{ pages|length }}</span>
+          <button id="next-page" onclick="navPage(1)" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center disabled:opacity-40 transition-colors">
+            <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
+          {% endwith %}
+        </div>
+      </div>
+
+      <div style="background: repeating-conic-gradient(#e2e8f0 0% 25%, #f8fafc 0% 50%) 0 0 / 16px 16px;">
+        {% for page in job.pages.all %}
+          {% if page.page_image %}
+          <div id="page-img-{{ page.page_number }}" class="page-img relative {% if not forloop.first %}hidden{% endif %}">
+            <img id="page-img-src-{{ page.page_number }}"
+                 src="{% url 'page_image' job.id page.page_number %}"
+                 alt="Page {{ page.page_number }}"
+                 class="block w-full h-auto object-contain">
+            <canvas id="page-canvas-{{ page.page_number }}"
+                    class="absolute top-0 left-0 pointer-events-none"
+                    style="width:100%;height:100%"></canvas>
+          </div>
+          {% else %}
+          <div id="page-img-{{ page.page_number }}" class="page-img {% if not forloop.first %}hidden{% endif %} flex items-center justify-center h-64">
+            <span class="text-slate-500 text-sm">No preview</span>
+          </div>
+          {% endif %}
+        {% empty %}
+          <div class="flex items-center justify-center h-64">
+            <span class="text-slate-500 text-sm">No pages yet</span>
+          </div>
+        {% endfor %}
+      </div>
+
+      {% for page in job.pages.all %}
+        {% if page.avg_confidence or page.avg_confidence == 0 %}
+        <div id="conf-bar-{{ page.page_number }}" class="page-conf-bar px-4 py-2 border-t border-slate-100 {% if not forloop.first %}hidden{% endif %}">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+            <span>Confidence</span>
+            <span class="font-semibold
+              {% if page.avg_confidence >= 0.85 %}text-emerald-600
+              {% elif page.avg_confidence >= 0.50 %}text-amber-600
+              {% else %}text-red-600{% endif %}">
+              {{ page.avg_confidence|percent:1 }}%
+            </span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-1.5">
+            <div class="h-1.5 rounded-full
+                        {% if page.avg_confidence >= 0.85 %}bg-emerald-500
+                        {% elif page.avg_confidence >= 0.50 %}bg-amber-500
+                        {% else %}bg-red-500{% endif %}"
+                 style="width: {{ page.avg_confidence|percent:0 }}%"></div>
+          </div>
+          {% with total_flags=page.flags.all|length open_flags=page.flags.all|unreviewed_count %}
+          <div class="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+            <span>Flags</span>
+            <span>{{ open_flags }} open / {{ total_flags }} total</span>
+          </div>
+          {% endwith %}
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% endif %}{# end results state #}
+
+<script>
+// Per-page flag polygon data for canvas highlight overlay
+const PAGE_FLAGS = {
+  {% for page in job.pages.all %}
+  {{ page.page_number }}: [{% for flag in page.unreviewed_flags_list %}{% if flag.polygon_json %}{"c":{{ flag.confidence }},"p":{{ flag.polygon_json|safe }}},{% endif %}{% endfor %}],
+  {% endfor %}
+};
+
+// Per-page flagged word sets for table cell highlighting
+const PAGE_FLAGGED_WORDS = {
+  {% for page in job.pages.all %}
+  {{ page.page_number }}: new Set([{% for flag in page.unreviewed_flags_list %}"{{ flag.word|escapejs }}",{% endfor %}]),
+  {% endfor %}
+};
+
+const PAGE_COUNT = {{ job.pages.all|length }};
+let currentPage = 1;
+
+function updatePreviewNav() {
+  const prev = document.getElementById('prev-page');
+  const next = document.getElementById('next-page');
+  if (prev) prev.disabled = currentPage <= 1;
+  if (next) next.disabled = currentPage >= PAGE_COUNT;
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.remove('border-emerald-500', 'text-emerald-600');
+    b.classList.add('border-transparent', 'text-slate-500');
+  });
+  document.querySelectorAll('[id^="tab-"]').forEach(t => t.classList.add('hidden'));
+  const btn = document.querySelector(`[data-tab="${name}"]`);
+  const tab = document.getElementById('tab-' + name);
+  if (btn) { btn.classList.add('border-emerald-500', 'text-emerald-600'); btn.classList.remove('border-transparent', 'text-slate-500'); }
+  if (tab) tab.classList.remove('hidden');
+}
+
+function showPage(num) {
+  currentPage = num;
+  document.querySelectorAll('.page-content').forEach(e => e.classList.add('hidden'));
+  document.querySelectorAll('.page-img').forEach(e => e.classList.add('hidden'));
+  document.querySelectorAll('.page-conf-bar').forEach(e => e.classList.add('hidden'));
+  document.querySelectorAll('.page-pill').forEach(p => {
+    p.classList.remove('bg-slate-900', 'text-white', 'border-slate-900');
+    p.classList.add('border-slate-200', 'text-slate-600');
+  });
+  const c = document.getElementById('page-content-' + num);
+  const i = document.getElementById('page-img-' + num);
+  const b = document.getElementById('conf-bar-' + num);
+  const p = document.querySelector(`[data-page="${num}"]`);
+  if (c) c.classList.remove('hidden');
+  if (i) { i.classList.remove('hidden'); drawHighlights(num); }
+  if (b) b.classList.remove('hidden');
+  if (p) {
+    p.classList.add('bg-slate-900', 'text-white', 'border-slate-900');
+    p.classList.remove('border-slate-200', 'text-slate-600');
+    p.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+  const indicator = document.getElementById('page-indicator');
+  if (indicator) indicator.textContent = num + ' / ' + PAGE_COUNT;
+  updatePreviewNav();
+}
+
+function navPage(delta) {
+  const next = currentPage + delta;
+  if (next >= 1 && next <= PAGE_COUNT) showPage(next);
+}
+
+function drawHighlights(pageNum) {
+  const canvas = document.getElementById('page-canvas-' + pageNum);
+  if (!canvas) return;
+  const img = document.getElementById('page-img-src-' + pageNum);
+  if (!img) return;
+  const flags = PAGE_FLAGS[pageNum] || [];
+  if (!flags.length) return;
+  function draw() {
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    flags.forEach(function(f) {
+      const poly = f.p;
+      if (!poly || poly.length < 6) return;
+      const isLow = f.c < 0.5;
+      ctx.fillStyle = isLow ? 'rgba(239,68,68,0.28)' : 'rgba(245,158,11,0.28)';
+      ctx.strokeStyle = isLow ? 'rgba(239,68,68,0.8)' : 'rgba(245,158,11,0.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(poly[0], poly[1]);
+      for (let i = 2; i < poly.length; i += 2) ctx.lineTo(poly[i], poly[i + 1]);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    });
+  }
+  if (img.complete && img.naturalWidth) draw();
+  else img.addEventListener('load', draw, {once: true});
+}
+
+function toggleDocText(id, btn) {
+  const panel = document.getElementById(id);
+  const chevron = btn.querySelector('.doctext-chevron');
+  const isHidden = panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', !isHidden);
+  if (chevron) chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
+}
+
+function toggleTable(id, btn) {
+  const body = document.getElementById(id);
+  if (!body) return;
+  const chevron = btn.querySelector('.tbl-chevron');
+  const isHidden = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !isHidden);
+  // UP (180°) = open/expanded, DOWN (0°) = closed — matches toggleDocText convention
+  if (chevron) chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
+}
+
+function expandTable(tblId, btn) {
+  const tbl = document.getElementById(tblId);
+  if (!tbl) return;
+  const extras = tbl.querySelectorAll('.tbl-extra');
+  const expanded = btn.dataset.expanded === '1';
+  extras.forEach(r => r.classList.toggle('hidden', expanded));
+  btn.dataset.expanded = expanded ? '0' : '1';
+  const chevron = btn.querySelector('.expand-chevron');
+  if (chevron) chevron.style.transform = expanded ? '' : 'rotate(180deg)';
+  const label = btn.querySelector('.expand-label');
+  if (label) label.textContent = expanded ? `Show all ${extras.length + 10} rows` : 'Show fewer rows';
+}
+
+function highlightAllTableCells() {
+  document.querySelectorAll('table[id^="tbl-p"]').forEach(function(tbl) {
+    const m = tbl.id.match(/^tbl-p(\d+)-/);
+    if (!m) return;
+    const flagged = PAGE_FLAGGED_WORDS[parseInt(m[1])];
+    if (!flagged || !flagged.size) return;
+    tbl.querySelectorAll('td').forEach(function(td) {
+      const text = td.textContent.trim();
+      if (!text) return;
+      const words = text.split(/\s+/);
+      if (words.some(function(w) { return flagged.has(w); })) {
+        td.classList.add('bg-amber-50', '!text-amber-900');
+        td.title = 'Contains low-confidence word(s)';
+      }
+    });
+  });
+}
+
+if (PAGE_COUNT > 0) {
+  showPage(1);
+} else {
+  updatePreviewNav();
+}
+highlightAllTableCells();
+</script>
+{% endblock %}

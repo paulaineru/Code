@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Sign in Oryx{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+  <div class="w-full max-w-md">
+
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center bg-white justify-center w-12 h-12 rounded-xl bg-navy-900 mb-4">
+        {%load static%}
+        <img 
+          src="{% static 'images/oryx.png' %}" 
+          alt="Oryx logo" 
+          class="w-6 h-6"
+          rounded-x1
+          >
+      </div>
+      <h1 class="text-2xl font-bold text-slate-900">Oryx</h1>
+      <p class="text-sm text-slate-500 mt-1">Sign in to your workspace</p>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 p-8">
+      {% if saml_enabled %}
+      <a href="{% url 'saml2_login' %}"
+         class="flex items-center justify-center gap-2 w-full border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium py-2.5 rounded-lg text-sm transition-colors {% if show_local_login %}mb-5{% endif %}">
+        <svg class="w-4 h-4" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+          <rect x="13" y="1" width="9" height="9" fill="#7FBA00"/>
+          <rect x="1" y="13" width="9" height="9" fill="#00A4EF"/>
+          <rect x="13" y="13" width="9" height="9" fill="#FFB900"/>
+        </svg>
+        Sign in with NSSF SSO
+      </a>
+      {% endif %}
+
+      {% if show_local_login %}
+      {% if saml_enabled %}
+      <div class="relative mb-5">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200"></div></div>
+        <div class="relative flex justify-center"><span class="bg-white px-3 text-xs text-slate-400">or sign in with username</span></div>
+      </div>
+      {% endif %}
+
+      <form method="post" class="space-y-5">
+        {% csrf_token %}
+
+        <div>
+          <label for="id_username" class="block text-sm font-medium text-slate-700 mb-1.5">Username</label>
+          <input type="text" name="username" id="id_username" autocomplete="username" required
+                 value="{{ form.username.value|default:'' }}"
+                 class="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition">
+        </div>
+
+        <div>
+          <label for="id_password" class="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+          <input type="password" name="password" id="id_password" autocomplete="current-password" required
+                 class="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition">
+        </div>
+
+        <button type="submit"
+                class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg text-sm transition-colors">
+          Sign in
+        </button>
+      </form>
+      {% elif saml_enabled %}
+      <p class="text-sm text-slate-500 text-center mt-5">Username/password sign-in is disabled for this environment.</p>
+      {% else %}
+      <p class="text-sm text-rose-600 text-center mt-5">No sign-in provider is enabled. Check the authentication settings.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

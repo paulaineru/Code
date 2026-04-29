@@ -1,0 +1,160 @@
+{% extends "layout/base.html" %}
+
+{% block body %}
+<div class="min-h-screen flex">
+  <aside class="w-60 bg-slate-950 text-slate-200 flex flex-col">
+    <div class="h-16 px-6 flex items-center border-b border-slate-800">
+      <div>
+        <div class="font-bold text-lg">Oryx</div>
+        <div class="text-xs text-slate-400">Document OCR Engine</div>
+      </div>
+    </div>
+
+    <nav class="p-4 space-y-2 flex-1">
+      {% if request.user.is_admin or request.user.is_operator %}
+      <a href="{% url 'upload' %}" class="block rounded-lg px-4 py-3 {% if request.path == '/upload/' %}bg-slate-800 border-l-4 border-emerald-500{% endif %}">Upload</a>
+      {% endif %}
+      <a href="{% url 'documents' %}" class="block rounded-lg px-4 py-3 {% if request.path == '/documents/' %}bg-slate-800 border-l-4 border-emerald-500{% endif %}">Documents</a>
+      <a href="{% url 'review' %}" class="block rounded-lg px-4 py-3 {% if request.path == '/review/' %}bg-slate-800 border-l-4 border-emerald-500{% endif %}">Review</a>
+      {% if request.user.is_admin or request.user.is_supervisor %}
+      <a href="{% url 'settings' %}" class="block rounded-lg px-4 py-3 {% if request.path == '/settings/' %}bg-slate-800 border-l-4 border-emerald-500{% endif %}">Configuration</a>
+      {% endif %}
+    </nav>
+
+    <div class="p-4 border-t border-slate-800">
+      <div class="text-sm font-medium">{{ request.user.get_full_name|default:request.user.username }}</div>
+      <div class="text-xs text-slate-400">{{ request.user.email }}</div>
+      <form action="{% url 'logout' %}" method="post" class="mt-3">
+        {% csrf_token %}
+        <button class="w-full rounded-lg bg-slate-800 px-3 py-2 text-sm">Sign out</button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="flex-1">
+    <header class="h-16 border-b border-slate-200 bg-white px-8 flex items-center justify-between">
+      <div class="text-sm text-slate-500">{% block breadcrumbs %}Workspace{% endblock %}</div>
+      <div class="text-sm text-slate-500">{{ request.user.username }}</div>
+    </header>
+
+    <div class="max-w-6xl mx-auto px-8 py-8">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  const SESSION_ACTIVITY_URL = "{% url 'session_activity' %}";
+  const SESSION_STATUS_URL = "{% url 'session_status' %}";
+  const WARNING_TOAST_ID = "session-idle-warning";
+  const ACTIVITY_PING_DEBOUNCE_MS = 30000;
+  let lastActivityPingAt = 0;
+  let statusRequestInFlight = false;
+
+  function getCookie(name) {
+    const prefix = `${name}=`;
+    return document.cookie
+      .split(';')
+      .map(part => part.trim())
+      .find(part => part.startsWith(prefix))
+      ?.slice(prefix.length) || '';
+  }
+
+  function redirectToLogin(loginUrl) {
+    window.location.assign(loginUrl || "{% url 'login' %}?timeout=1");
+  }
+
+  async function readJson(response) {
+    try {
+      return await response.json();
+    } catch (error) {
+      return {};
+    }
+  }
+
+  async function sendActivity(force = false) {
+    const now = Date.now();
+    if (!force && now - lastActivityPingAt < ACTIVITY_PING_DEBOUNCE_MS) {
+      return;
+    }
+
+    lastActivityPingAt = now;
+    try {
+      const response = await fetch(SESSION_ACTIVITY_URL, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken'),
+          'X-Oryx-Background': '1',
+        },
+      });
+      const data = await readJson(response);
+      if (response.status === 401 || data.expired) {
+        redirectToLogin(data.login_url);
+        return;
+      }
+      if (window.OryxToasts) {
+        window.OryxToasts.dismiss(WARNING_TOAST_ID);
+      }
+    } catch (error) {
+      // Ignore transient network issues.
+    }
+  }
+
+  async function checkSession() {
+    if (document.visibilityState === 'hidden' || statusRequestInFlight) {
+      return;
+    }
+
+    statusRequestInFlight = true;
+    try {
+      const response = await fetch(SESSION_STATUS_URL, {
+        credentials: 'same-origin',
+        headers: {
+          'X-Oryx-Background': '1',
+        },
+      });
+      const data = await readJson(response);
+      if (response.status === 401 || data.expired) {
+        redirectToLogin(data.login_url);
+        return;
+      }
+
+      if (data.remaining_seconds <= (data.warning_threshold_seconds || 60)) {
+        if (window.OryxToasts) {
+          window.OryxToasts.push({
+            toastId: WARNING_TOAST_ID,
+            kind: 'warning',
+            title: 'Session Expiring Soon',
+            message: 'You will be signed out soon due to inactivity. Move the mouse, scroll, or press a key to stay signed in.',
+            duration: 0,
+          });
+        }
+      } else if (window.OryxToasts) {
+        window.OryxToasts.dismiss(WARNING_TOAST_ID);
+      }
+    } catch (error) {
+      // Ignore transient network issues.
+    } finally {
+      statusRequestInFlight = false;
+    }
+  }
+
+  ['click', 'keydown', 'mousedown', 'touchstart', 'scroll'].forEach(eventName => {
+    window.addEventListener(eventName, () => sendActivity(false), { passive: true });
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      checkSession();
+      sendActivity(true);
+    }
+  });
+
+  window.setInterval(checkSession, 20000);
+  checkSession();
+})();
+</script>
+{% endblock %}

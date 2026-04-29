@@ -1,0 +1,12 @@
+{# Usage: {% include "includes/stat_card.html" with label="Total" value=stats.total color="slate" %} #}
+<div class="bg-white rounded-xl border border-slate-200 px-5 py-4">
+  <div class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">{{ label }}</div>
+  <div class="text-2xl font-bold
+    {% if color == 'emerald' %}text-emerald-600
+    {% elif color == 'amber' %}text-amber-600
+    {% elif color == 'red' %}text-red-600
+    {% elif color == 'blue' %}text-blue-600
+    {% else %}text-slate-900{% endif %}">
+    {{ value|default:"0" }}
+  </div>
+</div>

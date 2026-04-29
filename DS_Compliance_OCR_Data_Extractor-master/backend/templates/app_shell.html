@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block body %}
+{% with current=request.resolver_match.url_name %}
+<div class="min-h-screen flex">
+
+  {#  Sidebar #}
+  <aside id="sidebar"
+         class="bg-navy-900 text-slate-200 flex flex-col fixed inset-y-0 left-0 z-30 overflow-hidden"
+         style="width:16rem;transition:width .2s ease;">
+
+    {# Logo row #}
+    <div class="h-16 px-4 flex items-center border-b border-white/10 flex-shrink-0 overflow-hidden">
+      {%load static%}
+      <div class="w-8 h-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
+        <img src="{% static 'images/oryx.png' %}" alt="Oryx" class="w-6 h-6">
+      </div>
+      <div class="sidebar-text ml-3 overflow-hidden" style="transition:opacity .15s ease,width .2s ease;width:auto;white-space:nowrap;">
+        <div class="font-bold text-sm text-white leading-none font-heading">Oryx</div>
+        <div class="text-[10px] text-slate-400 mt-0.5">Document OCR Engine</div>
+      </div>
+    </div>
+
+    {# Nav #}
+    <nav class="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto overflow-x-hidden">
+
+      <div class="sidebar-text px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 overflow-hidden" style="transition:opacity .15s ease;white-space:nowrap;">Workspace</div>
+
+      {% if request.user.is_admin or request.user.is_operator %}
+      <a href="{% url 'upload' %}" title="Upload"
+         class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors overflow-hidden
+                {% if current == 'upload' %}bg-primary/20 text-white{% else %}text-slate-300 hover:bg-white/5 hover:text-white{% endif %}">
+        <span class="icon icon-sm flex-shrink-0 {% if current == 'upload' %}icon-filled{% endif %}">upload_file</span>
+        <span class="sidebar-text overflow-hidden" style="transition:opacity .15s ease;white-space:nowrap;">Upload</span>
+        {% if current == 'upload' %}<span class="active-bar absolute left-0 w-0.5 h-6 bg-primary rounded-r"></span>{% endif %}
+      </a>
+      {% endif %}
+
+      <a href="{% url 'document_list' %}" title="Documents"
+         class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors overflow-hidden
+                {% if current == 'document_list' or current == 'document_detail' %}bg-primary/20 text-white{% else %}text-slate-300 hover:bg-white/5 hover:text-white{% endif %}">
+        <span class="icon icon-sm flex-shrink-0 {% if current == 'document_list' or current == 'document_detail' %}icon-filled{% endif %}">folder_open</span>
+        <span class="sidebar-text overflow-hidden" style="transition:opacity .15s ease;white-space:nowrap;">Documents</span>
+      </a>
+
+      <a href="{% url 'review' %}" title="Review"
+         class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors overflow-hidden
+                {% if current == 'review' %}bg-primary/20 text-white{% else %}text-slate-300 hover:bg-white/5 hover:text-white{% endif %}">
+        <span class="icon icon-sm flex-shrink-0 {% if current == 'review' %}icon-filled{% endif %}">rate_review</span>
+        <span class="sidebar-text overflow-hidden" style="transition:opacity .15s ease;white-space:nowrap;">Review</span>
+      </a>
+
+      <div class="sidebar-text px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wider text-slate-500 overflow-hidden" style="transition:opacity .15s ease;white-space:nowrap;">
+        {% if request.user.is_admin %}Admin{% elif request.user.is_supervisor %}Department{% else %}Account{% endif %}
+      </div>
+
+      <a href="{% url 'audit_log' %}" title="Audit Log"
+         class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors overflow-hidden
+                {% if current == 'audit_log' %}bg-primary/20 text-white{% else %}text-slate-300 hover:bg-white/5 hover:text-white{% endif %}">
+        <span class="icon icon-sm flex-shrink-0 {% if current == 'audit_log' %}icon-filled{% endif %}">policy</span>
+        <span class="sidebar-text overflow-hidden" style="transition:opacity .15s ease;white-space:nowrap;">Audit Log</span>
+      </a>
+
+      {% if request.user.is_admin or request.user.is_supervisor %}
+      <a href="{% url 'admin_stats' %}" title="User Statistics"
+         class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors overflow-hidden
+                {% if current == 'admin_stats' %}bg-primary/20 text-white{% else %}text-slate-300 hover:bg-white/5 hover:text-white{% endif %}">
+        <span class="icon icon-sm flex-shrink-0 {% if current == 'admin_stats' %}icon-filled{% endif %}">bar_chart</span>
+        <span class="sidebar-text overflow-hidden" style="transition:opacity .15s ease;white-space:nowrap;">{% if request.user.is_supervisor %}Department Overview{% else %}User Statistics{% endif %}</span>
+      </a>
+
+      <a href="{% url 'settings' %}" title="Configuration"
+         class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors overflow-hidden
+                {% if current == 'settings' %}bg-primary/20 text-white{% else %}text-slate-300 hover:bg-white/5 hover:text-white{% endif %}">
+        <span class="icon icon-sm flex-shrink-0 {% if current == 'settings' %}icon-filled{% endif %}">settings</span>
+        <span class="sidebar-text overflow-hidden" style="transition:opacity .15s ease;white-space:nowrap;">{% if request.user.is_supervisor %}Department Settings{% else %}Configuration{% endif %}</span>
+      </a>
+      {% endif %}
+    </nav>
+
+    {# User area #}
+    <div class="px-2 py-4 border-t border-white/10 flex-shrink-0 overflow-hidden">
+      <div class="flex items-center gap-3 mb-3 px-1 overflow-hidden">
+        <div class="w-9 h-9 rounded-full bg-white flex items-center justify-center text-xs font-semibold text-black flex-shrink-0"
+             title="{{ request.user.full_name|default:request.user.username }}">
+          {{ request.user.get_initials }}
+        </div>
+        <div class="sidebar-text min-w-0 overflow-hidden" style="transition:opacity .15s ease;white-space:nowrap;">
+          <div class="text-sm font-medium text-white truncate">{{ request.user.full_name|default:request.user.username }}</div>
+          <div class="text-xs text-slate-400 truncate">{{ request.user.get_role_display }}</div>
+          {% if request.user.department %}
+          <div class="text-[11px] text-slate-500 truncate">{{ request.user.department.name }}</div>
+          {% endif %}
+        </div>
+      </div>
+      <form action="{% url 'logout' %}" method="post">
+        {% csrf_token %}
+        <button type="submit" title="Sign out"
+                class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-colors overflow-hidden">
+          <span class="icon icon-sm flex-shrink-0">logout</span>
+          <span class="sidebar-text overflow-hidden" style="transition:opacity .15s ease;white-space:nowrap;">Sign out</span>
+        </button>
+      </form>
+    </div>
+  </aside>
+
+  {#  Main content #}
+  <div id="main-wrap" class="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden"
+       style="margin-left:16rem;transition:margin-left .2s ease;">
+
+    {# Topbar #}
+    <header class="h-14 border-b border-slate-200 bg-white px-4 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+      <div class="flex items-center gap-3">
+        {# Sidebar toggle button #}
+        <button id="sidebar-toggle" onclick="toggleSidebar()"
+                class="w-9 h-9 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors flex-shrink-0"
+                title="Toggle sidebar">
+          <span class="icon icon-sm">menu</span>
+        </button>
+        <div class="text-sm text-slate-500 font-medium">{% block breadcrumbs %}Workspace{% endblock %}</div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
+          {{ request.user.get_initials }}
+        </div>
+        <span class="text-sm font-medium text-slate-700">{{ request.user.full_name|default:request.user.username }}</span>
+      </div>
+    </header>
+
+    {# Page body #}
+    <main class="flex-1 px-8 py-8 max-w-7xl w-full mx-auto">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'Oryx_sidebar_collapsed';
+
+function toggleSidebar() {
+  const collapsed = localStorage.getItem(STORAGE_KEY) === '1';
+  setSidebar(!collapsed);
+}
+
+function setSidebar(collapse) {
+  const sidebar = document.getElementById('sidebar');
+  const wrap = document.getElementById('main-wrap');
+  const texts = sidebar.querySelectorAll('.sidebar-text');
+
+  if (collapse) {
+    sidebar.style.width = '4rem';
+    wrap.style.marginLeft = '4rem';
+    texts.forEach(el => { el.style.opacity = '0'; el.style.width = '0'; el.style.overflow = 'hidden'; });
+    // Centre nav links
+    sidebar.querySelectorAll('.nav-link').forEach(a => { a.style.justifyContent = 'center'; a.style.padding = '0.625rem 0'; });
+    localStorage.setItem(STORAGE_KEY, '1');
+  } else {
+    sidebar.style.width = '16rem';
+    wrap.style.marginLeft = '16rem';
+    texts.forEach(el => { el.style.opacity = '1'; el.style.width = ''; el.style.overflow = ''; });
+    sidebar.querySelectorAll('.nav-link').forEach(a => { a.style.justifyContent = ''; a.style.padding = ''; });
+    localStorage.setItem(STORAGE_KEY, '0');
+  }
+}
+
+// Restore state on load (before paint to avoid flicker)
+(function () {
+  if (localStorage.getItem(STORAGE_KEY) === '1') {
+    setSidebar(true);
+  }
+})();
+
+(function () {
+  const SESSION_ACTIVITY_URL = "{% url 'session_activity' %}";
+  const SESSION_STATUS_URL = "{% url 'session_status' %}";
+  const WARNING_TOAST_ID = "session-idle-warning";
+  const ACTIVITY_PING_DEBOUNCE_MS = 30000;
+  let lastActivityPingAt = 0;
+  let statusRequestInFlight = false;
+
+  function getCookie(name) {
+    const prefix = `${name}=`;
+    return document.cookie
+      .split(';')
+      .map(part => part.trim())
+      .find(part => part.startsWith(prefix))
+      ?.slice(prefix.length) || '';
+  }
+
+  function redirectToLogin(loginUrl) {
+    window.location.assign(loginUrl || "{% url 'login' %}?timeout=1");
+  }
+
+  async function readJson(response) {
+    try {
+      return await response.json();
+    } catch (error) {
+      return {};
+    }
+  }
+
+  async function sendActivity(force = false) {
+    const now = Date.now();
+    if (!force && now - lastActivityPingAt < ACTIVITY_PING_DEBOUNCE_MS) {
+      return;
+    }
+
+    lastActivityPingAt = now;
+    try {
+      const response = await fetch(SESSION_ACTIVITY_URL, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken'),
+          'X-Oryx-Background': '1',
+        },
+      });
+      const data = await readJson(response);
+      if (response.status === 401 || data.expired) {
+        redirectToLogin(data.login_url);
+        return;
+      }
+      if (window.OryxToasts) {
+        window.OryxToasts.dismiss(WARNING_TOAST_ID);
+      }
+    } catch (error) {
+      // Quiet failure: idle middleware still protects the session on the server.
+    }
+  }
+
+  async function checkSession() {
+    if (document.visibilityState === 'hidden' || statusRequestInFlight) {
+      return;
+    }
+
+    statusRequestInFlight = true;
+    try {
+      const response = await fetch(SESSION_STATUS_URL, {
+        credentials: 'same-origin',
+        headers: {
+          'X-Oryx-Background': '1',
+        },
+      });
+      const data = await readJson(response);
+      if (response.status === 401 || data.expired) {
+        redirectToLogin(data.login_url);
+        return;
+      }
+
+      if (data.remaining_seconds <= (data.warning_threshold_seconds || 60)) {
+        if (window.OryxToasts) {
+          window.OryxToasts.push({
+            toastId: WARNING_TOAST_ID,
+            kind: 'warning',
+            title: 'Session Expiring Soon',
+            message: 'You will be signed out soon due to inactivity. Move the mouse, scroll, or press a key to stay signed in.',
+            duration: 0,
+          });
+        }
+      } else if (window.OryxToasts) {
+        window.OryxToasts.dismiss(WARNING_TOAST_ID);
+      }
+    } catch (error) {
+      // Ignore transient network issues; the next check will retry.
+    } finally {
+      statusRequestInFlight = false;
+    }
+  }
+
+  ['click', 'keydown', 'mousedown', 'touchstart', 'scroll'].forEach(eventName => {
+    window.addEventListener(eventName, () => sendActivity(false), { passive: true });
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      checkSession();
+      sendActivity(true);
+    }
+  });
+
+  window.setInterval(checkSession, 20000);
+  checkSession();
+})();
+</script>
+{% endwith %}
+{% endblock %}

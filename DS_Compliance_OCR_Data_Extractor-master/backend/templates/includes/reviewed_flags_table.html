@@ -1,0 +1,51 @@
+{% comment %}
+  Reviewed flags table with admin-override badge.
+  Expects: job (Job instance)
+{% endcomment %}
+{% load document_filters %}
+{% with flags=job|reviewed_flags %}
+{% if flags %}
+<div class="mt-5">
+  <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Reviewed</p>
+  <div class="rounded-lg border border-slate-200 overflow-hidden">
+    <table class="w-full text-xs">
+      <thead class="bg-slate-50">
+        <tr>
+          <th class="px-3 py-2 text-left font-semibold text-slate-500">Word</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-500">Confidence</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-500">Reviewed by</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-500">At</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for flag in flags %}
+        <tr class="{% if flag.admin_override %}bg-violet-50/60{% endif %}">
+          <td class="px-3 py-2 font-mono text-slate-700 break-all">
+            {{ flag.word }}
+            {% if flag.admin_override %}
+              <span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-100 text-violet-700"
+                    title="Approved by an admin on behalf of the document owner">
+                Admin override
+              </span>
+            {% endif %}
+          </td>
+          <td class="px-3 py-2">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-semibold
+              {% if flag.confidence_level == 'low' %}bg-red-50 text-red-700
+              {% elif flag.confidence_level == 'medium' %}bg-amber-50 text-amber-700
+              {% else %}bg-emerald-50 text-emerald-700{% endif %}">
+              {% widthratio flag.confidence 1 100 %}%
+            </span>
+          </td>
+          <td class="px-3 py-2 text-slate-500">
+            {{ flag.reviewed_by.get_full_name|default:flag.reviewed_by.username|default:"—" }}
+          </td>
+          <td class="px-3 py-2 text-slate-400">{{ flag.reviewed_at|date:"d M Y H:i"|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endwith %}

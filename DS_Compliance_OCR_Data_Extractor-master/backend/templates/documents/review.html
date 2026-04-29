@@ -1,0 +1,180 @@
+{% extends "app_shell.html" %}
+{% load humanize document_filters %}
+
+{% block title %}Review Oryx{% endblock %}
+{% block breadcrumbs %}Review{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-xl font-bold text-slate-900">Review queue</h1>
+    <p class="text-sm text-slate-500 mt-0.5">{{ page_subtitle }}</p>
+  </div>
+</div>
+
+{# Hero banner #}
+<div class="bg-amber-50 border border-amber-200 rounded-xl px-6 py-5 mb-6">
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <svg class="w-6 h-6 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+      <div>
+        <p class="font-semibold text-amber-800">{{ jobs|length }} document{{ jobs|length|pluralize }} flagged for manual review</p>
+        <p class="text-xs text-amber-600 mt-0.5">Review confidence flags before users download the final files.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Accordion cards per job #}
+{% if jobs %}
+<div class="space-y-3" id="review-list">
+  {% for job in jobs %}
+  <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    {# Card header #}
+    <div class="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-slate-50 transition-colors"
+         onclick="toggleAccordion('acc-{{ job.id }}', this)">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="font-medium text-slate-900 text-sm truncate">{{ job.filename }}</span>
+          {% include "includes/status_badge.html" with status=job.status label=job.get_status_display %}
+        </div>
+        <div class="text-xs text-slate-500 mt-0.5">{{ job.unreviewed_flags }} flag{{ job.unreviewed_flags|pluralize }} · {{ job.created_at|timesince }} ago</div>
+      </div>
+      <a href="{% url 'document_detail' job.id %}" class="text-xs font-medium text-emerald-600 hover:text-emerald-800 transition-colors px-3 py-1.5 rounded-lg border border-emerald-200 hover:border-emerald-300"
+         onclick="event.stopPropagation()">
+        Review now
+      </a>
+      <svg class="acc-chevron w-4 h-4 text-slate-400 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+
+    {# Expanded content #}
+    <div id="acc-{{ job.id }}" class="hidden border-t border-slate-100">
+      <div class="p-5">
+        <form id="review-form-{{ job.id }}" method="post" action="{% url 'approve_flags' job.id %}" onsubmit="return packReviewFlags(this)">
+          {% csrf_token %}
+          <input type="hidden" name="flag_ids" id="packed-flag-ids-{{ job.id }}" value="">
+          <input type="hidden" name="approve_all" id="approve-all-field-{{ job.id }}" value="">
+          <div class="flex justify-end mb-3">
+            <button type="submit" onclick="document.getElementById('approve-all-field-{{ job.id }}').value='1'"
+                    class="text-xs font-semibold text-emerald-600 hover:text-emerald-800">
+              Approve all
+            </button>
+          </div>
+          <div class="overflow-x-auto rounded-lg border border-slate-200">
+            <table class="w-full text-xs">
+              <thead class="bg-slate-50">
+                <tr>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-500">Word (OCR)</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-500">Confidence</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-500">Page</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-500">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                {% for page in job.pages.all %}
+                  {% for flag in page.flags.all %}
+                    {% if not flag.reviewed %}
+                    <tr class="hover:bg-slate-50">
+                      <td class="px-3 py-2.5 font-mono text-slate-900">{{ flag.word }}</td>
+                      <td class="px-3 py-2.5">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold
+                          {% if flag.confidence_level == 'low' %}bg-red-50 text-red-700
+                          {% elif flag.confidence_level == 'medium' %}bg-amber-50 text-amber-700
+                          {% else %}bg-emerald-50 text-emerald-700{% endif %}">
+                          {{ flag.confidence|percent:0 }}%
+                        </span>
+                      </td>
+                      <td class="px-3 py-2.5 text-slate-500">{{ page.page_number }}</td>
+                      <td class="px-3 py-2.5">
+                        <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                          <input type="checkbox" data-flag-id="{{ flag.id }}"
+                                 class="flag-cb rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                          <span class="text-emerald-600 font-medium">Accept</span>
+                        </label>
+                      </td>
+                    </tr>
+                    {% endif %}
+                  {% endfor %}
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-3">
+            <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors">
+              Submit selected
+            </button>
+          </div>
+        </form>
+        {% include "includes/reviewed_flags_table.html" with job=job %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="text-center py-20">
+  <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+    <svg class="w-7 h-7 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+    </svg>
+  </div>
+  <h3 class="text-sm font-semibold text-slate-700 mb-1">Review queue is empty</h3>
+  <p class="text-xs text-slate-400">No documents need review right now.</p>
+</div>
+{% endif %}
+
+{# Stats strip #}
+<div class="grid grid-cols-3 gap-4 mt-8">
+  <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
+    <div class="text-2xl font-bold text-slate-900 mb-1">{{ jobs|length }}</div>
+    <div class="text-xs text-slate-500">Queue load</div>
+  </div>
+  <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
+    <div class="text-2xl font-bold text-emerald-600 mb-1">{% widthratio config.confidence_threshold 1 100 %}%</div>
+    <div class="text-xs text-slate-500">Confidence threshold</div>
+  </div>
+  <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
+    <div class="text-2xl font-bold text-slate-900 mb-1">95%</div>
+    <div class="text-xs text-slate-500">Accuracy goal</div>
+  </div>
+</div>
+
+<script>
+function toggleAccordion(id, header) {
+  const content = document.getElementById(id);
+  const chevron = header.querySelector('.acc-chevron');
+  if (content.classList.contains('hidden')) {
+    content.classList.remove('hidden');
+    if (chevron) chevron.style.transform = 'rotate(180deg)';
+  } else {
+    content.classList.add('hidden');
+    if (chevron) chevron.style.transform = '';
+  }
+}
+function packReviewFlags(form) {
+  const approveAllField = form.querySelector('[name="approve_all"]');
+  if (approveAllField && approveAllField.value === '1') {
+    return true;
+  }
+
+  if (approveAllField) {
+    approveAllField.value = '';
+  }
+  const packedField = form.querySelector('[name="flag_ids"]');
+  if (!packedField) {
+    return true;
+  }
+  const ids = [...form.querySelectorAll('.flag-cb:checked')]
+    .map(cb => cb.dataset.flagId)
+    .filter(Boolean);
+  packedField.value = ids.join(',');
+  return true;
+}
+</script>
+{% endblock %}

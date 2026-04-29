@@ -1,0 +1,14 @@
+{# Usage: {% include "includes/status_badge.html" with status=job.status label=job.get_status_display %} #}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wide
+  {% if status == 'pending' %}bg-slate-100 text-slate-600
+  {% elif status == 'processing' %}bg-blue-50 text-blue-700
+  {% elif status == 'stopping' %}bg-orange-50 text-orange-700
+  {% elif status == 'stopped' %}bg-rose-50 text-rose-700
+  {% elif status == 'reviewing' %}bg-sky-50 text-sky-700
+  {% elif status == 'completed' %}bg-emerald-50 text-emerald-700
+  {% elif status == 'completed_with_errors' %}bg-rose-50 text-rose-700
+  {% elif status == 'needs_review' %}bg-amber-50 text-amber-700
+  {% elif status == 'failed' %}bg-red-50 text-red-700
+  {% else %}bg-slate-100 text-slate-600{% endif %}">
+  {{ label }}
+</span>
